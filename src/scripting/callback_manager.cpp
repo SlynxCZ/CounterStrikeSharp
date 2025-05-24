@@ -49,9 +49,19 @@ void ScriptCallback::Execute(bool bResetContext)
 
     for (auto fnMethodToCall : m_functions)
     {
-        if (fnMethodToCall)
+        if (!fnMethodToCall)
         {
-            fnMethodToCall(&ScriptContextStruct());
+            CSSHARP_CORE_WARN("Null function pointer in ScriptCallback '{}'", m_name);
+            continue;
+        }
+
+        try {
+            auto& ctx = ScriptContextStruct();
+            fnMethodToCall(&ctx);
+        } catch (const std::exception& ex) {
+            CSSHARP_CORE_ERROR("Exception in callback '{}': {}", m_name, ex.what());
+        } catch (...) {
+            CSSHARP_CORE_ERROR("Unknown exception in callback '{}'", m_name);
         }
     }
 
