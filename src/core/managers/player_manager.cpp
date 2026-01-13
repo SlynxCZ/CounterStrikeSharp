@@ -112,8 +112,30 @@ void PlayerManager::OnShutdown()
     globals::callbackManager.ReleaseCallback(m_on_player_buttons_changed_callback);
 }
 
-bool PlayerManager::OnClientConnect(
-    CPlayerSlot slot, const char* pszName, uint64 xuid, const char* pszNetworkID, bool unk1, CBufferString* pRejectReason)
+void PlayerManager::OnLevelEnd()
+{
+    CSSHARP_CORE_TRACE("[PlayerManager][OnLevelEnd]");
+
+    for (int i = 0; i <= MaxClients(); i++)
+    {
+        if (m_players[i].IsConnected())
+        {
+            Hook_OnClientDisconnect(globals::serverGameClients, m_players[i].m_slot, ENetworkDisconnectionReason::NETWORK_DISCONNECT_INVALID, m_players[i].GetName(), 0,
+                               m_players[i].GetIpAddress());
+            Hook_OnClientDisconnect_Post(globals::serverGameClients, m_players[i].m_slot, ENetworkDisconnectionReason::NETWORK_DISCONNECT_INVALID, m_players[i].GetName(), 0,
+                                    m_players[i].GetIpAddress());
+        }
+    }
+    m_player_count = 0;
+}
+
+KHook::Return<bool> PlayerManager::Hook_OnClientConnect(IServerGameClients* pThis,
+                                                        CPlayerSlot slot,
+                                                        const char* pszName,
+                                                        uint64 xuid,
+                                                        const char* pszNetworkID,
+                                                        bool unk1,
+                                                        CBufferString* pRejectReason)
 {
     CSSHARP_CORE_TRACE("[PlayerManager][OnClientConnect] - {}, {}, {}", slot.Get(), pszName, pszNetworkID);
 
@@ -122,8 +144,8 @@ bool PlayerManager::OnClientConnect(
 
     if (pPlayer->IsConnected())
     {
-        OnClientDisconnect(slot, ENetworkDisconnectionReason::NETWORK_DISCONNECT_INVALID, pszName, xuid, pszNetworkID);
-        OnClientDisconnect_Post(slot, ENetworkDisconnectionReason::NETWORK_DISCONNECT_INVALID, pszName, xuid, pszNetworkID);
+        Hook_OnClientDisconnect(pThis, slot, ENetworkDisconnectionReason::NETWORK_DISCONNECT_INVALID, pszName, xuid, pszNetworkID);
+        Hook_OnClientDisconnect_Post(pThis, slot, ENetworkDisconnectionReason::NETWORK_DISCONNECT_INVALID, pszName, xuid, pszNetworkID);
     }
 
     pPlayer->Initialize(pszName, pszNetworkID, slot);
@@ -156,11 +178,16 @@ bool PlayerManager::OnClientConnect(
 
     m_user_id_lookup[globals::engine->GetPlayerUserId(slot).Get()] = client;
 
-    return true;
+    return { KHook::Action::Override, true };
 }
 
-bool PlayerManager::OnClientConnect_Post(
-    CPlayerSlot slot, const char* pszName, uint64 xuid, const char* pszNetworkID, bool unk1, CBufferString* pRejectReason)
+KHook::Return<bool> PlayerManager::Hook_OnClientConnect_Post(IServerGameClients*,
+                                                             CPlayerSlot slot,
+                                                             const char* pszName,
+                                                             uint64 xuid,
+                                                             const char* pszNetworkID,
+                                                             bool unk1,
+                                                             CBufferString* pRejectReason)
 {
     CSSHARP_CORE_TRACE("[PlayerManager][OnClientConnect_Post] - {}, {}, {}", slot.Get(), pszName, pszNetworkID);
 
@@ -184,10 +211,10 @@ bool PlayerManager::OnClientConnect_Post(
         InvalidatePlayer(pPlayer);
     }
 
-    return true;
+    return { KHook::Action::Ignore, true };
 }
 
-void PlayerManager::OnClientPutInServer(CPlayerSlot slot, char const* pszName, int type, uint64 xuid)
+KHook::Return<void> PlayerManager::Hook_OnClientPutInServer(IServerGameClients* pThis, CPlayerSlot slot, const char* pszName, int type, uint64 xuid)
 {
     CSSHARP_CORE_TRACE("[PlayerManager][OnClientPutInServer] - {}, {}, {}", slot.Get(), pszName, type);
 
@@ -198,10 +225,10 @@ void PlayerManager::OnClientPutInServer(CPlayerSlot slot, char const* pszName, i
     {
         pPlayer->m_is_fake_client = true;
 
-        if (!OnClientConnect(slot, pszName, 0, "127.0.0.1", false, new CBufferStringGrowable<255>()))
+        if (!Hook_OnClientConnect(pThis, slot, pszName, 0, "127.0.0.1", false, new CBufferStringGrowable<255>()).ret)
         {
             /* :TODO: kick the bot if it's rejected */
-            return;
+            return { KHook::Action::Ignore };
         }
 
         m_on_client_connected_callback->ScriptContext().Reset();
@@ -223,10 +250,12 @@ void PlayerManager::OnClientPutInServer(CPlayerSlot slot, char const* pszName, i
     m_on_client_put_in_server_callback->ScriptContext().Reset();
     m_on_client_put_in_server_callback->ScriptContext().Push(pPlayer->m_slot.Get());
     m_on_client_put_in_server_callback->Execute();
+
+    return { KHook::Action::Ignore };
 }
 
-void PlayerManager::OnClientDisconnect(
-    CPlayerSlot slot, ENetworkDisconnectionReason reason, const char* pszName, uint64 xuid, const char* pszNetworkID)
+KHook::Return<void> PlayerManager::Hook_OnClientDisconnect(
+    IServerGameClients*, CPlayerSlot slot, ENetworkDisconnectionReason reason, const char* pszName, uint64 xuid, const char* pszNetworkID)
 {
     CSSHARP_CORE_TRACE("[PlayerManager][OnClientDisconnect] - {}, {}, {}", slot.Get(), pszName, pszNetworkID);
 
@@ -247,10 +276,12 @@ void PlayerManager::OnClientDisconnect(
     }
 
     // globals::entityListener.HandleEntityDeleted(pPlayer->GetBaseEntity(), client);
+
+    return { KHook::Action::Ignore };
 }
 
-void PlayerManager::OnClientDisconnect_Post(
-    CPlayerSlot slot, ENetworkDisconnectionReason reason, const char* pszName, uint64 xuid, const char* pszNetworkID) const
+KHook::Return<void> PlayerManager::Hook_OnClientDisconnect_Post(
+    IServerGameClients*, CPlayerSlot slot, ENetworkDisconnectionReason reason, const char* pszName, uint64 xuid, const char* pszNetworkID)
 {
     CSSHARP_CORE_TRACE("[PlayerManager][OnClientDisconnect_Post] - {}, {}, {}", slot.Get(), pszName, pszNetworkID);
 
@@ -259,7 +290,7 @@ void PlayerManager::OnClientDisconnect_Post(
     if (!pPlayer->IsConnected())
     {
         /* We don't care, prevent a double call */
-        return;
+        return { KHook::Action::Ignore };
     }
 
     InvalidatePlayer(pPlayer);
@@ -268,35 +299,22 @@ void PlayerManager::OnClientDisconnect_Post(
     m_on_client_disconnect_post_callback->ScriptContext().Push(pPlayer->m_slot.Get());
     m_on_client_disconnect_post_callback->ScriptContext().Push(reason);
     m_on_client_disconnect_post_callback->Execute();
+
+    return { KHook::Action::Ignore };
 }
 
-void PlayerManager::OnClientVoice(CPlayerSlot slot) const
+KHook::Return<void> PlayerManager::Hook_OnClientVoice(IServerGameClients*, CPlayerSlot slot)
 {
     CSSHARP_CORE_TRACE("[PlayerManager][OnClientVoice] - {}", slot.Get());
 
     m_on_client_voice_callback->ScriptContext().Reset();
     m_on_client_voice_callback->ScriptContext().Push(slot.Get());
     m_on_client_voice_callback->Execute();
+
+    return { KHook::Action::Ignore };
 }
 
-void PlayerManager::OnLevelEnd()
-{
-    CSSHARP_CORE_TRACE("[PlayerManager][OnLevelEnd]");
-
-    for (int i = 0; i <= MaxClients(); i++)
-    {
-        if (m_players[i].IsConnected())
-        {
-            OnClientDisconnect(m_players[i].m_slot, ENetworkDisconnectionReason::NETWORK_DISCONNECT_INVALID, m_players[i].GetName(), 0,
-                               m_players[i].GetIpAddress());
-            OnClientDisconnect_Post(m_players[i].m_slot, ENetworkDisconnectionReason::NETWORK_DISCONNECT_INVALID, m_players[i].GetName(), 0,
-                                    m_players[i].GetIpAddress());
-        }
-    }
-    m_player_count = 0;
-}
-
-bool PlayerManager::OnClientCommand(CPlayerSlot slot, const CCommand& args) const
+KHook::Return<void> PlayerManager::Hook_OnClientCommand(IServerGameClients*, CPlayerSlot slot, const CCommand& args)
 {
     CSSHARP_CORE_TRACE("[PlayerManager][OnClientCommand] - {}, {}, {}", slot.Get(), args.Arg(0), (void*)&args);
 
@@ -307,66 +325,10 @@ bool PlayerManager::OnClientCommand(CPlayerSlot slot, const CCommand& args) cons
     auto result = globals::conCommandManager.ExecuteCommandCallbacks(cmd, CCommandContext(CommandTarget_t::CT_NO_TARGET, slot), args,
                                                                      HookMode::Pre, CommandCallingContext::Console);
 
-    if (result >= HookResult::Handled) return true;
+    if (result >= HookResult::Handled)
+        return { KHook::Action::Supersede };
 
-    return false;
-}
-
-KHook::Return<bool> PlayerManager::Hook_OnClientConnect(IServerGameClients*,
-                                                        CPlayerSlot slot,
-                                                        const char* pszName,
-                                                        uint64 xuid,
-                                                        const char* pszNetworkID,
-                                                        bool unk1,
-                                                        CBufferString* pRejectReason)
-{
-    bool ret = OnClientConnect(slot, pszName, xuid, pszNetworkID, unk1, pRejectReason);
-    return { KHook::Action::Override, ret };
-}
-
-KHook::Return<bool> PlayerManager::Hook_OnClientConnect_Post(IServerGameClients*,
-                                                             CPlayerSlot slot,
-                                                             const char* pszName,
-                                                             uint64 xuid,
-                                                             const char* pszNetworkID,
-                                                             bool unk1,
-                                                             CBufferString* pRejectReason)
-{
-    bool ret = OnClientConnect_Post(slot, pszName, xuid, pszNetworkID, unk1, pRejectReason);
-    return { KHook::Action::Ignore, ret };
-}
-
-KHook::Return<void>
-PlayerManager::Hook_OnClientPutInServer(IServerGameClients*, CPlayerSlot slot, const char* pszName, int type, uint64 xuid)
-{
-    OnClientPutInServer(slot, pszName, type, xuid);
     return { KHook::Action::Ignore };
-}
-
-KHook::Return<void> PlayerManager::Hook_OnClientDisconnect(
-    IServerGameClients*, CPlayerSlot slot, ENetworkDisconnectionReason reason, const char* pszName, uint64 xuid, const char* pszNetworkID)
-{
-    OnClientDisconnect(slot, reason, pszName, xuid, pszNetworkID);
-    return { KHook::Action::Ignore };
-}
-
-KHook::Return<void> PlayerManager::Hook_OnClientDisconnect_Post(
-    IServerGameClients*, CPlayerSlot slot, ENetworkDisconnectionReason reason, const char* pszName, uint64 xuid, const char* pszNetworkID)
-{
-    OnClientDisconnect_Post(slot, reason, pszName, xuid, pszNetworkID);
-    return { KHook::Action::Ignore };
-}
-
-KHook::Return<void> PlayerManager::Hook_OnClientVoice(IServerGameClients*, CPlayerSlot slot)
-{
-    OnClientVoice(slot);
-    return { KHook::Action::Ignore };
-}
-
-KHook::Return<void> PlayerManager::Hook_OnClientCommand(IServerGameClients*, CPlayerSlot slot, const CCommand& args)
-{
-    bool ret = OnClientCommand(slot, args);
-    return { ret ? KHook::Action::Supersede : KHook::Action::Ignore };
 }
 
 int PlayerManager::ListenClient() const { return m_listen_client; }
