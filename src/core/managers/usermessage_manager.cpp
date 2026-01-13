@@ -27,20 +27,14 @@
 
 using namespace google;
 
-SH_DECL_HOOK8_void(IGameEventSystem,
-                   PostEventAbstract,
-                   SH_NOATTRIB,
-                   0,
-                   CSplitScreenSlot,
-                   bool,
-                   int,
-                   const uint64*,
-                   INetworkMessageInternal*,
-                   const CNetMessage*,
-                   unsigned long,
-                   NetChannelBufType_t)
+KHook::Virtual postEventHook(
+    &IGameEventSystem::PostEventAbstract,
+    &counterstrikesharp::globals::userMessageManager,
+    &counterstrikesharp::UserMessageManager::Hook_PostEvent,
+    nullptr
+);
 
-    namespace counterstrikesharp
+namespace counterstrikesharp
 {
     UserMessageManager::UserMessageManager() {}
 
@@ -48,14 +42,12 @@ SH_DECL_HOOK8_void(IGameEventSystem,
 
     void UserMessageManager::OnAllInitialized()
     {
-        SH_ADD_HOOK_MEMFUNC(IGameEventSystem, PostEventAbstract, globals::gameEventSystem, this, &UserMessageManager::Hook_PostEvent,
-                            false);
+        postEventHook.Add(globals::gameEventSystem);
     }
 
     void UserMessageManager::OnShutdown()
     {
-        SH_REMOVE_HOOK_MEMFUNC(IGameEventSystem, PostEventAbstract, globals::gameEventSystem, this, &UserMessageManager::Hook_PostEvent,
-                               false);
+        postEventHook.Remove(globals::gameEventSystem);
     }
 
     void UserMessageManager::HookUserMessage(int messageId, CallbackT fnCallback, HookMode mode)
@@ -155,7 +147,7 @@ SH_DECL_HOOK8_void(IGameEventSystem,
         return;
     }
 
-    void UserMessageManager::Hook_PostEvent(CSplitScreenSlot nSlot, bool bLocalOnly, int nClientCount, const uint64* clients,
+    KHook::Return<void> UserMessageManager::Hook_PostEvent(IGameEventSystem* pThis, CSplitScreenSlot nSlot, bool bLocalOnly, int nClientCount, const uint64* clients,
                                             INetworkMessageInternal* pEvent, const CNetMessage* pData, unsigned long nSize,
                                             NetChannelBufType_t bufType)
     {
@@ -186,7 +178,7 @@ SH_DECL_HOOK8_void(IGameEventSystem,
 
                     if (hookResult >= HookResult::Stop)
                     {
-                        RETURN_META(MRES_SUPERCEDE);
+                        return {KHook::Action::Supersede};
                     }
 
                     if (hookResult >= HookResult::Handled)
@@ -199,10 +191,10 @@ SH_DECL_HOOK8_void(IGameEventSystem,
 
         if (result >= HookResult::Handled)
         {
-            RETURN_META(MRES_SUPERCEDE);
+            return {KHook::Action::Supersede};
         }
 
-        RETURN_META(MRES_IGNORED);
+        return {KHook::Action::Ignore};
     }
 
 } // namespace counterstrikesharp

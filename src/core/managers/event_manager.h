@@ -30,6 +30,7 @@
  */
 
 #pragma once
+#include "KHook/src/detour.hpp"
 
 class CUtlString;
 
@@ -94,9 +95,9 @@ class EventManager : public IGameEventListener2, public GlobalClass
     bool UnhookEvent(const char* szName, CallbackT fnCallback, bool bPost);
     bool HookEvent(const char* szName, CallbackT fnCallback, bool bPost);
 
+    KHook::Return<bool> Hook_FireEvent(IGameEventManager2* pThis, IGameEvent* pEvent, bool bDontBroadcast);
+    KHook::Return<bool> Hook_FireEventPost(IGameEventManager2* pThis, IGameEvent* pEvent, bool bDontBroadcast);
   private:
-    bool OnFireEvent(IGameEvent* pEvent, bool bDontBroadcast);
-    bool OnFireEventPost(IGameEvent* pEvent, bool bDontBroadcast);
 
     std::map<std::string, EventHook*> m_hooksMap;
 

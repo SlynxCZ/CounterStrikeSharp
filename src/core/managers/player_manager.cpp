@@ -36,7 +36,6 @@
 #include <public/eiface.h>
 #include <public/inetchannelinfo.h>
 #include <public/iserver.h>
-#include <sourcehook/sourcehook.h>
 
 #include "core/log.h"
 #include "core/timer_system.h"
@@ -48,17 +47,40 @@
 #include <vprof.h>
 // extern CEntitySystem *g_pEntitySystem;
 
-SH_DECL_HOOK4_void(IServerGameClients, ClientActive, SH_NOATTRIB, 0, CPlayerSlot, bool, const char*, uint64);
-SH_DECL_HOOK5_void(
-    IServerGameClients, ClientDisconnect, SH_NOATTRIB, 0, CPlayerSlot, ENetworkDisconnectionReason, const char*, uint64, const char*);
+KHook::Virtual clientConnectHook(
+    &IServerGameClients::ClientConnect,
+    &counterstrikesharp::globals::playerManager,
+    &counterstrikesharp::PlayerManager::Hook_OnClientConnect,
+    &counterstrikesharp::PlayerManager::Hook_OnClientConnect_Post
+);
 
-SH_DECL_HOOK1_void(IServerGameClients, ClientVoice, SH_NOATTRIB, 0, CPlayerSlot);
-SH_DECL_HOOK4_void(IServerGameClients, ClientPutInServer, SH_NOATTRIB, 0, CPlayerSlot, char const*, int, uint64);
-SH_DECL_HOOK1_void(IServerGameClients, ClientSettingsChanged, SH_NOATTRIB, 0, CPlayerSlot);
-SH_DECL_HOOK6_void(IServerGameClients, OnClientConnected, SH_NOATTRIB, 0, CPlayerSlot, const char*, uint64, const char*, const char*, bool);
-SH_DECL_HOOK6(IServerGameClients, ClientConnect, SH_NOATTRIB, 0, bool, CPlayerSlot, const char*, uint64, const char*, bool, CBufferString*);
+KHook::Virtual clientPutInServerHook(
+    &IServerGameClients::ClientPutInServer,
+    &counterstrikesharp::globals::playerManager,
+    &counterstrikesharp::PlayerManager::Hook_OnClientPutInServer,
+    nullptr
+);
 
-SH_DECL_HOOK2_void(IServerGameClients, ClientCommand, SH_NOATTRIB, 0, CPlayerSlot, const CCommand&);
+KHook::Virtual clientDisconnectHook(
+    &IServerGameClients::ClientDisconnect,
+    &counterstrikesharp::globals::playerManager,
+    &counterstrikesharp::PlayerManager::Hook_OnClientDisconnect,
+    &counterstrikesharp::PlayerManager::Hook_OnClientDisconnect_Post
+);
+
+KHook::Virtual clientVoiceHook(
+    &IServerGameClients::ClientVoice,
+    &counterstrikesharp::globals::playerManager,
+    &counterstrikesharp::PlayerManager::Hook_OnClientVoice,
+    nullptr
+);
+
+KHook::Virtual clientCommandHook(
+    &IServerGameClients::ClientCommand,
+    &counterstrikesharp::globals::playerManager,
+    &counterstrikesharp::PlayerManager::Hook_OnClientCommand,
+    nullptr
+);
 
 namespace counterstrikesharp {
 
@@ -66,16 +88,11 @@ void PlayerManager::OnStartup() {}
 
 void PlayerManager::OnAllInitialized()
 {
-    SH_ADD_HOOK(IServerGameClients, ClientConnect, globals::serverGameClients, SH_MEMBER(this, &PlayerManager::OnClientConnect), false);
-    SH_ADD_HOOK(IServerGameClients, ClientConnect, globals::serverGameClients, SH_MEMBER(this, &PlayerManager::OnClientConnect_Post), true);
-    SH_ADD_HOOK(IServerGameClients, ClientPutInServer, globals::serverGameClients, SH_MEMBER(this, &PlayerManager::OnClientPutInServer),
-                true);
-    SH_ADD_HOOK(IServerGameClients, ClientDisconnect, globals::serverGameClients, SH_MEMBER(this, &PlayerManager::OnClientDisconnect),
-                false);
-    SH_ADD_HOOK(IServerGameClients, ClientDisconnect, globals::serverGameClients, SH_MEMBER(this, &PlayerManager::OnClientDisconnect_Post),
-                true);
-    SH_ADD_HOOK(IServerGameClients, ClientCommand, globals::serverGameClients, SH_MEMBER(this, &PlayerManager::OnClientCommand), false);
-    SH_ADD_HOOK(IServerGameClients, ClientVoice, globals::serverGameClients, SH_MEMBER(this, &PlayerManager::OnClientVoice), true);
+    clientConnectHook.Add(globals::serverGameClients);
+    clientPutInServerHook.Add(globals::serverGameClients);
+    clientDisconnectHook.Add(globals::serverGameClients);
+    clientVoiceHook.Add(globals::serverGameClients);
+    clientCommandHook.Add(globals::serverGameClients);
 
     m_on_client_connect_callback = globals::callbackManager.CreateCallback("OnClientConnect");
     m_on_client_connected_callback = globals::callbackManager.CreateCallback("OnClientConnected");
@@ -89,17 +106,11 @@ void PlayerManager::OnAllInitialized()
 
 void PlayerManager::OnShutdown()
 {
-    SH_REMOVE_HOOK(IServerGameClients, ClientConnect, globals::serverGameClients, SH_MEMBER(this, &PlayerManager::OnClientConnect), false);
-    SH_REMOVE_HOOK(IServerGameClients, ClientConnect, globals::serverGameClients, SH_MEMBER(this, &PlayerManager::OnClientConnect_Post),
-                   true);
-    SH_REMOVE_HOOK(IServerGameClients, ClientPutInServer, globals::serverGameClients, SH_MEMBER(this, &PlayerManager::OnClientPutInServer),
-                   true);
-    SH_REMOVE_HOOK(IServerGameClients, ClientDisconnect, globals::serverGameClients, SH_MEMBER(this, &PlayerManager::OnClientDisconnect),
-                   false);
-    SH_REMOVE_HOOK(IServerGameClients, ClientDisconnect, globals::serverGameClients,
-                   SH_MEMBER(this, &PlayerManager::OnClientDisconnect_Post), true);
-    SH_REMOVE_HOOK(IServerGameClients, ClientCommand, globals::serverGameClients, SH_MEMBER(this, &PlayerManager::OnClientCommand), false);
-    SH_REMOVE_HOOK(IServerGameClients, ClientVoice, globals::serverGameClients, SH_MEMBER(this, &PlayerManager::OnClientVoice), true);
+    clientConnectHook.Remove(globals::serverGameClients);
+    clientPutInServerHook.Remove(globals::serverGameClients);
+    clientDisconnectHook.Remove(globals::serverGameClients);
+    clientVoiceHook.Remove(globals::serverGameClients);
+    clientCommandHook.Remove(globals::serverGameClients);
 
     globals::callbackManager.ReleaseCallback(m_on_client_connect_callback);
     globals::callbackManager.ReleaseCallback(m_on_client_connected_callback);
@@ -164,7 +175,7 @@ bool PlayerManager::OnClientConnect_Post(
     CSSHARP_CORE_TRACE("[PlayerManager][OnClientConnect_Post] - {}, {}, {}", slot.Get(), pszName, pszNetworkID);
 
     int client = slot.Get();
-    bool orig_value = META_RESULT_ORIG_RET(bool);
+    bool orig_value = *reinterpret_cast<bool*>(KHook::GetOriginalValuePtr());
     CPlayer* pPlayer = &m_players[client];
 
     if (orig_value)
@@ -295,7 +306,7 @@ void PlayerManager::OnLevelEnd()
     m_player_count = 0;
 }
 
-void PlayerManager::OnClientCommand(CPlayerSlot slot, const CCommand& args) const
+bool PlayerManager::OnClientCommand(CPlayerSlot slot, const CCommand& args) const
 {
     CSSHARP_CORE_TRACE("[PlayerManager][OnClientCommand] - {}, {}, {}", slot.Get(), args.Arg(0), (void*)&args);
 
@@ -307,9 +318,87 @@ void PlayerManager::OnClientCommand(CPlayerSlot slot, const CCommand& args) cons
                                                                      HookMode::Pre, CommandCallingContext::Console);
 
     if (result >= HookResult::Handled)
-    {
-        RETURN_META(MRES_SUPERCEDE);
-    }
+        return true;
+
+    return false;
+}
+
+KHook::Return<bool> PlayerManager::Hook_OnClientConnect(
+    IServerGameClients*,
+    CPlayerSlot slot,
+    const char* pszName,
+    uint64 xuid,
+    const char* pszNetworkID,
+    bool unk1,
+    CBufferString* pRejectReason)
+{
+    bool ret = OnClientConnect(slot, pszName, xuid, pszNetworkID, unk1, pRejectReason);
+    return {KHook::Action::Override, ret};
+}
+
+KHook::Return<bool> PlayerManager::Hook_OnClientConnect_Post(
+    IServerGameClients*,
+    CPlayerSlot slot,
+    const char* pszName,
+    uint64 xuid,
+    const char* pszNetworkID,
+    bool unk1,
+    CBufferString* pRejectReason)
+{
+    bool ret = OnClientConnect_Post(slot, pszName, xuid, pszNetworkID, unk1, pRejectReason);
+    return {KHook::Action::Ignore, ret};
+}
+
+KHook::Return<void> PlayerManager::Hook_OnClientPutInServer(
+    IServerGameClients*,
+    CPlayerSlot slot,
+    const char* pszName,
+    int type,
+    uint64 xuid)
+{
+    OnClientPutInServer(slot, pszName, type, xuid);
+    return {KHook::Action::Ignore};
+}
+
+KHook::Return<void> PlayerManager::Hook_OnClientDisconnect(
+    IServerGameClients*,
+    CPlayerSlot slot,
+    ENetworkDisconnectionReason reason,
+    const char* pszName,
+    uint64 xuid,
+    const char* pszNetworkID)
+{
+    OnClientDisconnect(slot, reason, pszName, xuid, pszNetworkID);
+    return {KHook::Action::Ignore};
+}
+
+KHook::Return<void> PlayerManager::Hook_OnClientDisconnect_Post(
+    IServerGameClients*,
+    CPlayerSlot slot,
+    ENetworkDisconnectionReason reason,
+    const char* pszName,
+    uint64 xuid,
+    const char* pszNetworkID)
+{
+    OnClientDisconnect_Post(slot, reason, pszName, xuid, pszNetworkID);
+    return {KHook::Action::Ignore};
+}
+
+KHook::Return<void> PlayerManager::Hook_OnClientVoice(
+    IServerGameClients*,
+    CPlayerSlot slot)
+{
+    OnClientVoice(slot);
+    return {KHook::Action::Ignore};
+}
+
+KHook::Return<void> PlayerManager::Hook_OnClientCommand(
+    IServerGameClients*,
+    CPlayerSlot slot,
+    const CCommand& args)
+{
+    bool ret = OnClientCommand(slot, args);
+    return {ret ? KHook::Action::Supersede : KHook::Action::Ignore};
 }
 
 int PlayerManager::ListenClient() const { return m_listen_client; }

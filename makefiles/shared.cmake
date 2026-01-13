@@ -65,8 +65,7 @@ include_directories(
     libraries/dyncall/dyncall
     libraries/spdlog/include
     libraries/tl
-    libraries/funchook/include
-    libraries/DynoHook/src
+    libraries/KHook/include
     libraries/moodycamel
     libraries
 )

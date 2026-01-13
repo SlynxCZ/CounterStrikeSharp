@@ -24,12 +24,14 @@
 #include "core/global_listener.h"
 #include "scripting/script_engine.h"
 #include "entitysystem.h"
+#include "khook.hpp"
 #include "scripting/callback_manager.h"
 #include "core/recipientfilters.h"
 
 #include <variant.h>
 
 #include "vprof.h"
+#include "khook/asm.hpp"
 
 class CTakeDamageResult;
 class CTakeDamageInfo;
@@ -67,45 +69,6 @@ class CCheckTransmitInfoList
   private:
     CCheckTransmitInfoHack** infoList;
     int infoCount;
-};
-
-class EntityManager : public GlobalClass
-{
-    friend CEntityListener;
-
-  public:
-    EntityManager();
-    ~EntityManager();
-    void OnAllInitialized() override;
-    void OnShutdown() override;
-    void HookEntityOutput(const char* szClassname, const char* szOutput, CallbackT fnCallback, HookMode mode);
-    void UnhookEntityOutput(const char* szClassname, const char* szOutput, CallbackT fnCallback, HookMode mode);
-    CEntityListener entityListener;
-    std::map<OutputKey_t, CallbackPair*> m_pHookMap;
-    bool Hook_OnTakeDamage_Alive_Pre(CBaseEntity* entity, CTakeDamageInfo* info, CTakeDamageResult* pResult);
-    void Hook_OnTakeDamage_Alive_Post(CBaseEntity* entity, CTakeDamageInfo* info, CTakeDamageResult* pResult);
-    ValveFunction* Func_OnTakeDamage;
-
-  private:
-    void CheckTransmit(CCheckTransmitInfoHack** ppInfoList,
-                       uint32_t infoCount,
-                       CBitVec<16384>& unionTransmitEdicts1,
-                       CBitVec<16384>& unionTransmitEdicts2,
-                       const Entity2Networkable_t** pNetworkables,
-                       const uint16* pEntityIndicies,
-                       uint32_t nEntities);
-
-    ScriptCallback* on_entity_spawned_callback;
-    ScriptCallback* on_entity_created_callback;
-    ScriptCallback* on_entity_deleted_callback;
-    ScriptCallback* on_entity_parent_changed_callback;
-    ScriptCallback* on_entity_take_damage_pre_callback;
-    ScriptCallback* on_entity_take_damage_post_callback;
-    ScriptCallback* on_player_take_damage_pre_callback;
-    ScriptCallback* on_player_take_damage_post_callback;
-    ScriptCallback* check_transmit;
-
-    std::string m_profile_name;
 };
 
 enum EntityIOTargetType_t
@@ -147,22 +110,60 @@ struct EntityIOOutputDesc_t
 
 class CEntityIOOutput
 {
-  public:
+public:
     void* vtable;
     EntityIOConnection_t* m_pConnections;
     EntityIOOutputDesc_t* m_pDesc;
 };
 
-typedef void (*FireOutputInternal)(
-    CEntityIOOutput* const, CEntityInstance*, CEntityInstance*, const CVariant* const, float flDelay, void* unk1, char* unk2);
+class EntityManager : public GlobalClass
+{
+    friend CEntityListener;
 
-static void DetourFireOutputInternal(CEntityIOOutput* const pThis,
+  public:
+    EntityManager();
+    ~EntityManager();
+    void OnAllInitialized() override;
+    void OnShutdown() override;
+    void HookEntityOutput(const char* szClassname, const char* szOutput, CallbackT fnCallback, HookMode mode);
+    void UnhookEntityOutput(const char* szClassname, const char* szOutput, CallbackT fnCallback, HookMode mode);
+    CEntityListener entityListener;
+    std::map<OutputKey_t, CallbackPair*> m_pHookMap;
+    bool Hook_OnTakeDamage_Alive_Pre(CBaseEntity* entity, CTakeDamageInfo* info, CTakeDamageResult* pResult);
+    void Hook_OnTakeDamage_Alive_Post(CBaseEntity* entity, CTakeDamageInfo* info, CTakeDamageResult* pResult);
+    ValveFunction* Func_OnTakeDamage;
+    KHook::Return<void> Hook_CheckTransmit(ISource2GameEntities* pThis,
+                       CCheckTransmitInfoHack** ppInfoList,
+                       uint32_t infoCount,
+                       CBitVec<16384>& unionTransmitEdicts1,
+                       CBitVec<16384>& unionTransmitEdicts2,
+                       const Entity2Networkable_t** pNetworkables,
+                       const uint16* pEntityIndicies,
+                       uint32_t nEntities);
+    KHook::Return<void> Hook_FireOutputInternal(CEntityIOOutput* const pThis,
                                      CEntityInstance* pActivator,
                                      CEntityInstance* pCaller,
                                      const CVariant* const value,
                                      float flDelay,
                                      void* unk1,
                                      char* unk2);
+
+  private:
+    ScriptCallback* on_entity_spawned_callback;
+    ScriptCallback* on_entity_created_callback;
+    ScriptCallback* on_entity_deleted_callback;
+    ScriptCallback* on_entity_parent_changed_callback;
+    ScriptCallback* on_entity_take_damage_pre_callback;
+    ScriptCallback* on_entity_take_damage_post_callback;
+    ScriptCallback* on_player_take_damage_pre_callback;
+    ScriptCallback* on_player_take_damage_post_callback;
+    ScriptCallback* check_transmit;
+
+    std::string m_profile_name;
+};
+
+typedef void (*FireOutputInternal)(
+    CEntityIOOutput* const, CEntityInstance*, CEntityInstance*, const CVariant* const, float flDelay, void* unk1, char* unk2);
 
 static FireOutputInternal m_pFireOutputInternal = nullptr;
 

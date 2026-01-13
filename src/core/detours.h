@@ -1,35 +1,37 @@
 #pragma once
 
 #include "core/log.h"
-#include "pch.h"
-#include "dynohook/core.h"
-#include "dynohook/manager.h"
-
+#include "core/function.h"
 #include "core/globals.h"
 #include "core/managers/entity_manager.h"
 
 #include "scripting/script_engine.h"
+
 namespace counterstrikesharp {
 
-inline HookResult OnTakeDamageProxy(HookMode mode, dyno::Hook& hook)
+inline HookResult OnTakeDamageProxy(HookMode mode, KHookWrapper& hook)
 {
-    auto* pThis = reinterpret_cast<CBaseEntity*>(hook.getArgument<void*>(0));
-    auto* pInfo = reinterpret_cast<CTakeDamageInfo*>(hook.getArgument<void*>(1));
-    auto* pResult = reinterpret_cast<CTakeDamageResult*>(hook.getArgument<void*>(2));
+    auto* pThis = reinterpret_cast<CBaseEntity*>(hook.args[0]);
+    auto* pInfo = reinterpret_cast<CTakeDamageInfo*>(hook.args[1]);
+    auto* pResult= reinterpret_cast<CTakeDamageResult*>(hook.args[2]);
 
-    if (mode == Pre)
+    if (mode == HookMode::Pre)
     {
-        if (!globals::entityManager.Hook_OnTakeDamage_Alive_Pre(pThis, pInfo, pResult))
+        if (!globals::entityManager
+                .Hook_OnTakeDamage_Alive_Pre(pThis, pInfo, pResult))
         {
-            hook.setReturnValue(1);
+            hook.returnStorage = 1;
+            hook.returnValue = &hook.returnStorage;
             return HookResult::Handled;
         }
     }
     else
     {
-        globals::entityManager.Hook_OnTakeDamage_Alive_Post(pThis, pInfo, pResult);
+        globals::entityManager
+            .Hook_OnTakeDamage_Alive_Post(pThis, pInfo, pResult);
     }
 
     return HookResult::Continue;
 }
+
 } // namespace counterstrikesharp

@@ -21,6 +21,7 @@
 #include "inetchannel.h"
 #include "networksystem/inetworkserializer.h"
 #include "scripting/script_engine.h"
+#include "khook.hpp"
 
 namespace counterstrikesharp {
 class ScriptCallback;
@@ -44,7 +45,8 @@ class UserMessageManager : public GlobalClass
     ~UserMessageManager();
     void OnAllInitialized() override;
     void OnShutdown() override;
-    void Hook_PostEvent(CSplitScreenSlot nSlot,
+    KHook::Return<void> Hook_PostEvent(IGameEventSystem* pThis,
+                        CSplitScreenSlot nSlot,
                         bool bLocalOnly,
                         int nClientCount,
                         const uint64* clients,

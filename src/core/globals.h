@@ -3,6 +3,7 @@
 #include <tier1/convar.h>
 
 #include <sourcehook/sourcehook.h>
+#include "khook.hpp"
 
 #include <memory>
 #include <thread>
@@ -123,7 +124,7 @@ typedef void GameEventManagerInit_t(IGameEventManager2* gameEventManager);
 typedef IGameEventListener2* GetLegacyGameEventListener_t(CPlayerSlot slot);
 typedef void* NetworkStateChanged_t(void* chainEntity, CNetworkStateChangedInfo& info);
 
-static void DetourGameEventManagerInit(IGameEventManager2* gameEventManager);
+static KHook::Return<void> Hook_GameEventManagerInit(IGameEventManager2* gameEventManager);
 
 extern bool gameLoopInitialized;
 extern GetLegacyGameEventListener_t* GetLegacyGameEventListener;

@@ -34,32 +34,15 @@
 #include "core/log.h"
 #include "dyncall/dyncall/dyncall.h"
 
-#include "pch.h"
-#include "dynohook/core.h"
-#include "dynohook/manager.h"
-
-#ifdef _WIN32
-#include "dynohook/conventions/x64/x64MsFastcall.h"
-#else
-#include "dynohook/conventions/x64/x64SystemVcall.h"
-#endif
-
 namespace counterstrikesharp {
 
-DCCallVM* g_pCallVM = dcNewCallVM(4096);
-std::map<dyno::Hook*, ValveFunction*> g_HookMap;
+static DCCallVM* g_pCallVM = dcNewCallVM(4096);
 
-// ============================================================================
-// >> GetDynCallConvention
-// ============================================================================
-int GetDynCallConvention(Convention_t eConv)
+int GetDynCallConvention(Convention_t c)
 {
-    switch (eConv)
+    switch (c)
     {
-        case CONV_CUSTOM:
-            return -1;
-        case CONV_CDECL:
-            return DC_CALL_C_DEFAULT;
+        case CONV_CDECL: return DC_CALL_C_DEFAULT;
         case CONV_THISCALL:
 #ifdef _WIN32
             return DC_CALL_C_X86_WIN32_THIS_MS;
@@ -67,389 +50,414 @@ int GetDynCallConvention(Convention_t eConv)
             return DC_CALL_C_X86_WIN32_THIS_GNU;
 #endif
 #ifdef _WIN32
-        case CONV_STDCALL:
-            return DC_CALL_C_X86_WIN32_STD;
-        case CONV_FASTCALL:
-            return DC_CALL_C_X86_WIN32_FAST_MS;
+        case CONV_STDCALL: return DC_CALL_C_X86_WIN32_STD;
+        case CONV_FASTCALL: return DC_CALL_C_X86_WIN32_FAST_MS;
 #endif
+        default: return -1;
     }
-
-    return -1;
 }
 
-ValveFunction::ValveFunction(void* ulAddr, Convention_t callingConvention, std::vector<DataType_t> args, DataType_t returnType)
-    : m_ulAddr(ulAddr)
+template<DataType_t T>
+struct ToCpp;
+
+template<> struct ToCpp<DATA_TYPE_VOID> { using type = void; };
+template<> struct ToCpp<DATA_TYPE_BOOL> { using type = bool; };
+template<> struct ToCpp<DATA_TYPE_CHAR> { using type = char; };
+template<> struct ToCpp<DATA_TYPE_UCHAR> { using type = unsigned char; };
+template<> struct ToCpp<DATA_TYPE_SHORT> { using type = short; };
+template<> struct ToCpp<DATA_TYPE_USHORT> { using type = unsigned short; };
+template<> struct ToCpp<DATA_TYPE_INT> { using type = int; };
+template<> struct ToCpp<DATA_TYPE_UINT> { using type = unsigned int; };
+template<> struct ToCpp<DATA_TYPE_LONG> { using type = long; };
+template<> struct ToCpp<DATA_TYPE_ULONG> { using type = unsigned long; };
+template<> struct ToCpp<DATA_TYPE_LONG_LONG> { using type = long long; };
+template<> struct ToCpp<DATA_TYPE_ULONG_LONG> { using type = unsigned long long; };
+template<> struct ToCpp<DATA_TYPE_FLOAT> { using type = float; };
+template<> struct ToCpp<DATA_TYPE_DOUBLE> { using type = double; };
+template<> struct ToCpp<DATA_TYPE_POINTER> { using type = void*; };
+template<> struct ToCpp<DATA_TYPE_STRING> { using type = const char*; };
+template<> struct ToCpp<DATA_TYPE_VARIANT> { using type = void*; };
+
+template<typename T>
+HookHolder MakeHook(std::unique_ptr<T> ptr)
 {
-    m_Args = args;
-
-    m_eReturnType = returnType;
-
-    m_eCallingConvention = callingConvention;
-
-    m_iCallingConvention = GetDynCallConvention(m_eCallingConvention);
+    HookHolder h;
+    h.configure = [](KHook::__Hook* base, void* addr)
+    {
+        static_cast<T*>(base)->Configure(addr);
+    };
+    h.obj = std::move(ptr);
+    return h;
 }
 
-ValveFunction::ValveFunction(void* ulAddr, Convention_t callingConvention, DataType_t* args, int argCount, DataType_t returnType)
-    : m_ulAddr(ulAddr)
-
+template<DataType_t RET, size_t IDX, DataType_t... BUILT>
+struct HookBuilder
 {
-    m_Args = std::vector<DataType_t>(args, args + argCount);
-    m_eReturnType = returnType;
+    static HookHolder Build(
+        ValveFunction* self,
+        const std::vector<DataType_t>& args)
+    {
+        if constexpr (IDX == sizeof...(BUILT))
+        {
+            using R = typename ToCpp<RET>::type;
 
-    m_eCallingConvention = callingConvention;
-    m_iCallingConvention = GetDynCallConvention(m_eCallingConvention);
+            using HookT = KHook::Function<
+                R,
+                typename ToCpp<BUILT>::type...
+            >;
+
+            return MakeHook(std::make_unique<HookT>(
+                self,
+                &ValveFunction::OnPre<R, typename ToCpp<BUILT>::type...>,
+                &ValveFunction::OnPost<R, typename ToCpp<BUILT>::type...>
+            ));
+        }
+        else
+        {
+            if (IDX >= args.size())
+                return {};
+
+            switch (args[IDX])
+            {
+                case DATA_TYPE_INT:
+                    return HookBuilder<RET, IDX+1, BUILT..., DATA_TYPE_INT>
+                        ::Build(self, args);
+
+                case DATA_TYPE_FLOAT:
+                    return HookBuilder<RET, IDX+1, BUILT..., DATA_TYPE_FLOAT>
+                        ::Build(self, args);
+
+                case DATA_TYPE_DOUBLE:
+                    return HookBuilder<RET, IDX+1, BUILT..., DATA_TYPE_DOUBLE>
+                        ::Build(self, args);
+
+                case DATA_TYPE_POINTER:
+                    return HookBuilder<RET, IDX+1, BUILT..., DATA_TYPE_POINTER>
+                        ::Build(self, args);
+
+                case DATA_TYPE_STRING:
+                    return HookBuilder<RET, IDX+1, BUILT..., DATA_TYPE_STRING>
+                        ::Build(self, args);
+
+                default:
+                    return {};
+            }
+        }
+    }
+};
+
+template<typename... A>
+static void FillArgs(KHookWrapper& h, A... args)
+{
+    h.args.clear();
+    h.argStorage.clear();
+
+    constexpr size_t count = sizeof...(A);
+    h.argStorage.resize(count);
+
+    size_t i = 0;
+    ((std::memcpy(&h.argStorage[i],
+                   &args,
+                   sizeof(args)),
+      h.args.push_back(&h.argStorage[i]),
+      ++i), ...);
+}
+
+ValveFunction::ValveFunction(void* addr, Convention_t conv,
+                             std::vector<DataType_t> args,
+                             DataType_t ret)
+{
+    m_ulAddr = addr;
+    m_Args = std::move(args);
+    m_eReturnType = ret;
+
+    m_eCallingConvention = conv;
+    m_iCallingConvention = GetDynCallConvention(conv);
 }
 
 ValveFunction::~ValveFunction()
 {
-    if (m_precallback != nullptr)
-    {
+    if (m_precallback)
         globals::callbackManager.ReleaseCallback(m_precallback);
-        m_precallback = nullptr;
-    }
-
-    if (m_postcallback != nullptr)
-    {
+    if (m_postcallback)
         globals::callbackManager.ReleaseCallback(m_postcallback);
-        m_postcallback = nullptr;
-    }
 }
 
-bool ValveFunction::IsCallable() { return (m_eCallingConvention != CONV_CUSTOM) && (m_iCallingConvention != -1); }
-
-template <class ReturnType, class Function> ReturnType CallHelper(Function func, DCCallVM* vm, void* addr)
+bool ValveFunction::IsCallable()
 {
-    ReturnType result;
-    result = (ReturnType)func(vm, (void*)addr);
-    return result;
+    return m_iCallingConvention != -1;
 }
 
-void CallHelperVoid(DCCallVM* vm, void* addr) { dcCallVoid(vm, (void*)addr); }
-
-void ValveFunction::Call(ScriptContext& script_context, int offset, bool bypass)
+template<class R, class FN>
+static R CallHelper(FN fn, DCCallVM* vm, void* addr)
 {
-    if (!IsCallable()) return;
+    return (R)fn(vm, addr);
+}
+
+void ValveFunction::Call(ScriptContext& ctx, int offset, bool bypass)
+{
+    if (!IsCallable())
+        return;
 
     dcReset(g_pCallVM);
     dcMode(g_pCallVM, m_iCallingConvention);
 
     for (size_t i = 0; i < m_Args.size(); i++)
     {
-        int contextIndex = i + offset;
+        int idx = i + offset;
+
         switch (m_Args[i])
         {
-            case DATA_TYPE_BOOL:
-                dcArgBool(g_pCallVM, script_context.GetArgument<bool>(contextIndex));
-                break;
-            case DATA_TYPE_CHAR:
-                dcArgChar(g_pCallVM, script_context.GetArgument<char>(contextIndex));
-                break;
-            case DATA_TYPE_UCHAR:
-                dcArgChar(g_pCallVM, script_context.GetArgument<unsigned char>(contextIndex));
-                break;
-            case DATA_TYPE_SHORT:
-                dcArgShort(g_pCallVM, script_context.GetArgument<short>(contextIndex));
-                break;
-            case DATA_TYPE_USHORT:
-                dcArgShort(g_pCallVM, script_context.GetArgument<unsigned short>(contextIndex));
-                break;
             case DATA_TYPE_INT:
-                dcArgInt(g_pCallVM, script_context.GetArgument<int>(contextIndex));
-                break;
-            case DATA_TYPE_UINT:
-                dcArgInt(g_pCallVM, script_context.GetArgument<unsigned int>(contextIndex));
-                break;
-            case DATA_TYPE_LONG:
-                dcArgLong(g_pCallVM, script_context.GetArgument<long>(contextIndex));
-                break;
-            case DATA_TYPE_ULONG:
-                dcArgLong(g_pCallVM, script_context.GetArgument<unsigned long>(contextIndex));
-                break;
-            case DATA_TYPE_LONG_LONG:
-                dcArgLongLong(g_pCallVM, script_context.GetArgument<long long>(contextIndex));
-                break;
-            case DATA_TYPE_ULONG_LONG:
-                dcArgLongLong(g_pCallVM, script_context.GetArgument<unsigned long long>(contextIndex));
+                dcArgInt(g_pCallVM, ctx.GetArgument<int>(idx));
                 break;
             case DATA_TYPE_FLOAT:
-                dcArgFloat(g_pCallVM, script_context.GetArgument<float>(contextIndex));
+                dcArgFloat(g_pCallVM, ctx.GetArgument<float>(idx));
                 break;
             case DATA_TYPE_DOUBLE:
-                dcArgDouble(g_pCallVM, script_context.GetArgument<double>(contextIndex));
+                dcArgDouble(g_pCallVM, ctx.GetArgument<double>(idx));
                 break;
             case DATA_TYPE_POINTER:
-                dcArgPointer(g_pCallVM, script_context.GetArgument<void*>(contextIndex));
+                dcArgPointer(g_pCallVM, ctx.GetArgument<void*>(idx));
                 break;
             case DATA_TYPE_STRING:
-                dcArgPointer(g_pCallVM, (void*)script_context.GetArgument<const char*>(contextIndex));
+                dcArgPointer(g_pCallVM,
+                    (void*)ctx.GetArgument<const char*>(idx));
                 break;
             default:
-                assert(!"Unknown function parameter type!");
                 break;
         }
     }
 
-    void* m_target = m_ulAddr;
-    if (bypass && m_trampoline)
-    {
-        m_target = m_trampoline;
-    }
+    void* target = bypass && m_trampoline
+        ? m_trampoline
+        : m_ulAddr;
 
     switch (m_eReturnType)
     {
         case DATA_TYPE_VOID:
-            CallHelperVoid(g_pCallVM, m_target);
-            break;
-        case DATA_TYPE_BOOL:
-            script_context.SetResult(CallHelper<bool>(dcCallBool, g_pCallVM, m_target));
-            break;
-        case DATA_TYPE_CHAR:
-            script_context.SetResult(CallHelper<char>(dcCallChar, g_pCallVM, m_target));
-            break;
-        case DATA_TYPE_UCHAR:
-            script_context.SetResult(CallHelper<unsigned char>(dcCallChar, g_pCallVM, m_target));
-            break;
-        case DATA_TYPE_SHORT:
-            script_context.SetResult(CallHelper<short>(dcCallShort, g_pCallVM, m_target));
-            break;
-        case DATA_TYPE_USHORT:
-            script_context.SetResult(CallHelper<unsigned short>(dcCallShort, g_pCallVM, m_target));
+            dcCallVoid(g_pCallVM, target);
             break;
         case DATA_TYPE_INT:
-            script_context.SetResult(CallHelper<int>(dcCallInt, g_pCallVM, m_target));
-            break;
-        case DATA_TYPE_UINT:
-            script_context.SetResult(CallHelper<unsigned int>(dcCallInt, g_pCallVM, m_target));
-            break;
-        case DATA_TYPE_LONG:
-            script_context.SetResult(CallHelper<long>(dcCallLong, g_pCallVM, m_target));
-            break;
-        case DATA_TYPE_ULONG:
-            script_context.SetResult(CallHelper<unsigned long>(dcCallLong, g_pCallVM, m_target));
-            break;
-        case DATA_TYPE_LONG_LONG:
-            script_context.SetResult(CallHelper<long long>(dcCallLongLong, g_pCallVM, m_target));
-            break;
-        case DATA_TYPE_ULONG_LONG:
-            script_context.SetResult(CallHelper<unsigned long long>(dcCallLongLong, g_pCallVM, m_target));
+            ctx.SetResult(CallHelper<int>(dcCallInt, g_pCallVM, target));
             break;
         case DATA_TYPE_FLOAT:
-            script_context.SetResult(CallHelper<float>(dcCallFloat, g_pCallVM, m_target));
+            ctx.SetResult(CallHelper<float>(dcCallFloat, g_pCallVM, target));
             break;
         case DATA_TYPE_DOUBLE:
-            script_context.SetResult(CallHelper<double>(dcCallDouble, g_pCallVM, m_target));
+            ctx.SetResult(CallHelper<double>(dcCallDouble, g_pCallVM, target));
             break;
         case DATA_TYPE_POINTER:
-            script_context.SetResult(CallHelper<void*>(dcCallPointer, g_pCallVM, m_target));
-            break;
-        case DATA_TYPE_STRING:
-            script_context.SetResult(CallHelper<const char*>(dcCallPointer, g_pCallVM, m_target));
+            ctx.SetResult(CallHelper<void*>(dcCallPointer, g_pCallVM, target));
             break;
         default:
-            assert(!"Unknown function return type!");
             break;
     }
 }
 
-dyno::ReturnAction HookHandler(dyno::HookType hookType, dyno::Hook& hook)
+void ValveFunction::AddHook(
+    const std::function<HookResult(HookMode, KHookWrapper&)>& cb)
 {
-    auto* vf = g_HookMap[&hook];
+    m_callback = cb;
 
-    if (hookType == dyno::HookType::Pre)
+    if (!m_khook)
     {
-        auto* callback = vf->m_precallback;
-        auto global_callback = vf->m_callback;
-        HookResult maxResult = HookResult::Continue;
-
-        if (global_callback.has_value())
+        switch (m_eReturnType)
         {
-            HookResult result = global_callback.value()(HookMode::Pre, hook);
-            maxResult = (std::max)(result, maxResult);
-        }
+            case DATA_TYPE_VOID:
+                m_khook = HookBuilder<
+                    DATA_TYPE_VOID,
+                    0
+                >::Build(this, m_Args);
+                break;
 
-        if (callback != nullptr)
-        {
-            callback->Reset();
-            callback->ScriptContext().Push(&hook);
+            case DATA_TYPE_INT:
+                m_khook = HookBuilder<
+                    DATA_TYPE_INT,
+                    0
+                >::Build(this, m_Args);
+                break;
 
-            for (auto fnMethodToCall : callback->GetFunctions())
-            {
-                if (!fnMethodToCall) continue;
-                fnMethodToCall(&callback->ScriptContextStruct());
+            case DATA_TYPE_FLOAT:
+                m_khook = HookBuilder<
+                    DATA_TYPE_FLOAT,
+                    0
+                >::Build(this, m_Args);
+                break;
 
-                auto result = callback->ScriptContext().GetResult<HookResult>();
+            case DATA_TYPE_DOUBLE:
+                m_khook = HookBuilder<
+                    DATA_TYPE_DOUBLE,
+                    0
+                >::Build(this, m_Args);
+                break;
 
-                maxResult = (std::max)(result, maxResult);
+            case DATA_TYPE_POINTER:
+                m_khook = HookBuilder<
+                    DATA_TYPE_POINTER,
+                    0
+                >::Build(this, m_Args);
+                break;
 
-                if (maxResult >= HookResult::Stop)
-                {
-                    break;
-                }
-            }
-        }
-
-        // Store the pre-hook result for the post-hook to check
-        vf->m_lastPreHookResult.push_back(maxResult);
-
-        if (maxResult >= HookResult::Handled)
-        {
-            return dyno::ReturnAction::Supercede;
-        }
-
-        return dyno::ReturnAction::Ignored;
-    }
-
-    // Post hook
-    HookResult preResult = HookResult::Continue;
-    if (!vf->m_lastPreHookResult.empty())
-    {
-        preResult = vf->m_lastPreHookResult.back();
-        vf->m_lastPreHookResult.pop_back();
-    }
-
-    if (preResult >= HookResult::Handled)
-    {
-        return dyno::ReturnAction::Ignored;
-    }
-
-    auto* callback = vf->m_postcallback;
-    auto global_callback = vf->m_callback;
-
-    if (callback == nullptr && !global_callback.has_value())
-    {
-        return dyno::ReturnAction::Ignored;
-    }
-
-    if (global_callback.has_value())
-    {
-        HookResult result = global_callback.value()(HookMode::Post, hook);
-        if (result >= HookResult::Handled)
-        {
-            return dyno::ReturnAction::Supercede;
+            default:
+                CSSHARP_CORE_ERROR("Unsupported return type");
+                return;
         }
     }
 
-    if (callback == nullptr)
+    if (m_khook && m_khook.configure)
     {
-        return dyno::ReturnAction::Ignored;
+        m_khook.configure(m_khook.obj.get(), m_ulAddr);
     }
-
-    callback->Reset();
-    callback->ScriptContext().Push(&hook);
-
-    HookResult maxResult = HookResult::Continue;
-    for (auto fnMethodToCall : callback->GetFunctions())
-    {
-        if (!fnMethodToCall) continue;
-        fnMethodToCall(&callback->ScriptContextStruct());
-
-        auto result = callback->ScriptContext().GetResult<HookResult>();
-
-        maxResult = (std::max)(result, maxResult);
-
-        if (maxResult >= HookResult::Stop)
-        {
-            break;
-        }
-    }
-
-    if (maxResult >= HookResult::Handled)
-    {
-        return dyno::ReturnAction::Supercede;
-    }
-
-    return dyno::ReturnAction::Ignored;
 }
 
-std::vector<dyno::DataObject> ConvertArgsToDynoHook(const std::vector<DataType_t>& dataTypes)
+void ValveFunction::AddHook(CallbackT fn, bool post)
 {
-    std::vector<dyno::DataObject> converted;
-    converted.reserve(dataTypes.size());
-
-    for (DataType_t dt : dataTypes)
+    if (!m_khook)
     {
-        converted.push_back(dyno::DataObject(static_cast<dyno::DataType>(dt)));
+        switch (m_eReturnType)
+        {
+            case DATA_TYPE_VOID:
+                m_khook = HookBuilder<
+                    DATA_TYPE_VOID,
+                    0
+                >::Build(this, m_Args);
+                break;
+
+            case DATA_TYPE_INT:
+                m_khook = HookBuilder<
+                    DATA_TYPE_INT,
+                    0
+                >::Build(this, m_Args);
+                break;
+
+            case DATA_TYPE_FLOAT:
+                m_khook = HookBuilder<
+                    DATA_TYPE_FLOAT,
+                    0
+                >::Build(this, m_Args);
+                break;
+
+            case DATA_TYPE_DOUBLE:
+                m_khook = HookBuilder<
+                    DATA_TYPE_DOUBLE,
+                    0
+                >::Build(this, m_Args);
+                break;
+
+            case DATA_TYPE_POINTER:
+                m_khook = HookBuilder<
+                    DATA_TYPE_POINTER,
+                    0
+                >::Build(this, m_Args);
+                break;
+
+            default:
+                CSSHARP_CORE_ERROR("Unsupported return type");
+                return;
+        }
     }
 
-    return converted;
-}
+    if (!m_khook)
+        return;
 
-void ValveFunction::AddHook(const std::function<HookResult(HookMode, dyno::Hook&)>& callback)
-{
-    dyno::HookManager& manager = dyno::HookManager::Get();
-    dyno::Hook* hook = manager.hook((void*)m_ulAddr, [this] {
-#ifdef _WIN32
-        return new dyno::x64MsFastcall(ConvertArgsToDynoHook(m_Args), static_cast<dyno::DataType>(this->m_eReturnType));
-#else
-        return new dyno::x64SystemVcall(ConvertArgsToDynoHook(m_Args), static_cast<dyno::DataType>(this->m_eReturnType));
-#endif
-    });
-    g_HookMap[hook] = this;
-    hook->addCallback(dyno::HookType::Post, (dyno::HookHandler*)&HookHandler);
-    hook->addCallback(dyno::HookType::Pre, (dyno::HookHandler*)&HookHandler);
-    m_trampoline = hook->getOriginal();
-    m_callback = callback;
-}
-
-void ValveFunction::AddHook(CallbackT callable, bool post)
-{
-    dyno::HookManager& manager = dyno::HookManager::Get();
-    dyno::Hook* hook = manager.hook((void*)m_ulAddr, [this] {
-#ifdef _WIN32
-        return new dyno::x64MsFastcall(ConvertArgsToDynoHook(m_Args), static_cast<dyno::DataType>(this->m_eReturnType));
-#else
-        return new dyno::x64SystemVcall(ConvertArgsToDynoHook(m_Args), static_cast<dyno::DataType>(this->m_eReturnType));
-#endif
-    });
-    g_HookMap[hook] = this;
-    hook->addCallback(dyno::HookType::Post, (dyno::HookHandler*)&HookHandler);
-    hook->addCallback(dyno::HookType::Pre, (dyno::HookHandler*)&HookHandler);
-    m_trampoline = hook->getOriginal();
+    if (m_khook && m_khook.configure)
+    {
+        m_khook.configure(m_khook.obj.get(), m_ulAddr);
+    }
 
     if (post)
     {
-        if (m_postcallback == nullptr)
-        {
+        if (!m_postcallback)
             m_postcallback = globals::callbackManager.CreateCallback("");
-        }
-        m_postcallback->AddListener(callable);
+
+        m_postcallback->AddListener(fn);
     }
     else
     {
-        if (m_precallback == nullptr)
-        {
+        if (!m_precallback)
             m_precallback = globals::callbackManager.CreateCallback("");
-        }
-        m_precallback->AddListener(callable);
+
+        m_precallback->AddListener(fn);
     }
 }
-void ValveFunction::RemoveHook(CallbackT callable, bool post)
-{
-    dyno::HookManager& manager = dyno::HookManager::Get();
-    dyno::Hook* hook = manager.hook((void*)m_ulAddr, [this] {
-#ifdef _WIN32
-        return new dyno::x64MsFastcall(ConvertArgsToDynoHook(m_Args), static_cast<dyno::DataType>(this->m_eReturnType));
-#else
-        return new dyno::x64SystemVcall(ConvertArgsToDynoHook(m_Args), static_cast<dyno::DataType>(this->m_eReturnType));
-#endif
-    });
-    g_HookMap[hook] = this;
-    m_trampoline = nullptr;
 
-    if (post)
+template<typename R, typename... A>
+KHook::Return<R> ValveFunction::OnPre(A... args)
+{
+    FillArgs(m_runtimeHook, args...);
+
+    m_runtimeHook.originalFunc = m_ulAddr;
+    m_runtimeHook.returnValue = nullptr;
+
+    HookResult max = HookResult::Continue;
+
+    if (m_callback)
+        max = m_callback.value()(HookMode::Pre, m_runtimeHook);
+
+    if (m_precallback)
     {
-        if (m_postcallback != nullptr)
+        m_precallback->Reset();
+        m_precallback->ScriptContext().Push(&m_runtimeHook);
+
+        for (auto fn : m_precallback->GetFunctions())
         {
-            m_postcallback->RemoveListener(callable);
+            fn(&m_precallback->ScriptContextStruct());
+            max = std::max(
+                max,
+                m_precallback->ScriptContext().GetResult<HookResult>());
         }
     }
-    else
+
+    m_lastPreHookResult.push_back(max);
+
+    if (max >= HookResult::Handled)
+        return { KHook::Action::Supersede };
+
+    return { KHook::Action::Ignore };
+}
+
+template<typename R, typename... A>
+KHook::Return<R> ValveFunction::OnPost(A... args)
+{
+    HookResult pre = HookResult::Continue;
+
+    if (!m_lastPreHookResult.empty())
     {
-        if (m_precallback != nullptr)
-        {
-            m_precallback->RemoveListener(callable);
-        }
+        pre = m_lastPreHookResult.back();
+        m_lastPreHookResult.pop_back();
     }
+
+    if (pre >= HookResult::Handled)
+        return { KHook::Action::Ignore };
+
+    if (m_callback)
+    {
+        if (m_callback.value()(HookMode::Post, m_runtimeHook)
+            >= HookResult::Handled)
+            return { KHook::Action::Supersede };
+    }
+
+    if (!m_postcallback)
+        return { KHook::Action::Ignore };
+
+    m_postcallback->Reset();
+    m_postcallback->ScriptContext().Push(&m_runtimeHook);
+
+    HookResult max = HookResult::Continue;
+
+    for (auto fn : m_postcallback->GetFunctions())
+    {
+        fn(&m_postcallback->ScriptContextStruct());
+        max = std::max(
+            max,
+            m_postcallback->ScriptContext().GetResult<HookResult>());
+    }
+
+    if (max >= HookResult::Handled)
+        return { KHook::Action::Supersede };
+
+    return { KHook::Action::Ignore };
 }
 
 } // namespace counterstrikesharp

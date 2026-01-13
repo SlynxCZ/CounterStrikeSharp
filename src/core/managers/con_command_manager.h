@@ -38,6 +38,7 @@
 #include "core/global_listener.h"
 #include "core/globals.h"
 #include "playerslot.h"
+#include "KHook/src/detour.hpp"
 #include "scripting/script_engine.h"
 
 struct CaseInsensitiveComparator
@@ -99,8 +100,8 @@ class ConCommandManager : public GlobalClass
     bool IsValidValveCommand(const char* name);
     bool AddValveCommand(const char* name, const char* description, bool server_only, int flags);
     bool RemoveValveCommand(const char* name);
-    void Hook_DispatchConCommand(ConCommandRef cmd, const CCommandContext& ctx, const CCommand& args);
-    void Hook_DispatchConCommand_Post(ConCommandRef cmd, const CCommandContext& ctx, const CCommand& args);
+    KHook::Return<void> Hook_DispatchConCommand(ICvar* pThis, ConCommandRef cmd, const CCommandContext& ctx, const CCommand& args);
+    KHook::Return<void> Hook_DispatchConCommand_Post(ICvar* pThis, ConCommandRef cmd, const CCommandContext& ctx, const CCommand& args);
     HookResult ExecuteCommandCallbacks(
         const char* name, const CCommandContext& ctx, const CCommand& args, HookMode mode, CommandCallingContext callingContext);
 

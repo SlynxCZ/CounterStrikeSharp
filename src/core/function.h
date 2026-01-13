@@ -30,14 +30,11 @@
 
 #pragma once
 
+#include "khook.hpp"
 #include "scripting/callback_manager.h"
 #include "scripting/script_engine.h"
 #include <map>
 #include <optional>
-
-namespace dyno {
-class Hook;
-} // namespace dyno
 
 namespace counterstrikesharp {
 
@@ -81,42 +78,70 @@ enum Convention_t
     CONV_FASTCALL
 };
 
+struct KHookWrapper
+{
+    void* originalFunc = nullptr;
+
+    std::vector<uint64_t> argStorage;
+    std::vector<void*> args;
+
+    uint64_t returnStorage{};
+    void* returnValue = nullptr;
+};
+
+struct HookHolder
+{
+    std::unique_ptr<KHook::__Hook> obj;
+    void (*configure)(KHook::__Hook*, void*) = nullptr;
+
+    explicit operator bool() const { return obj != nullptr; }
+};
+
 class ValveFunction
 {
-  public:
-    ValveFunction(void* ulAddr, Convention_t callingConvention, std::vector<DataType_t> args, DataType_t returnType);
-    ValveFunction(void* ulAddr, Convention_t callingConvention, DataType_t* args, int argCount, DataType_t returnType);
+public:
+    ValveFunction(void* addr, Convention_t conv,
+                  std::vector<DataType_t> args,
+                  DataType_t ret);
 
     ~ValveFunction();
 
     bool IsCallable();
 
     void SetOffset(int offset) { m_offset = offset; }
-    void SetSignature(const char* signature) { m_signature = signature; }
+    void SetSignature(const char* sig) { m_signature = sig; }
 
-    void Call(ScriptContext& args, int offset = 0, bool bypass = false);
-    void AddHook(const std::function<HookResult(HookMode, dyno::Hook&)>& callback);
+    void Call(ScriptContext& ctx, int offset = 0, bool bypass = false);
+
+    void AddHook(const std::function<HookResult(HookMode, KHookWrapper&)>& cb);
     void AddHook(CallbackT callable, bool post);
     void RemoveHook(CallbackT callable, bool post);
 
-    void* m_ulAddr;
-    void* m_trampoline;
+    template<typename R, typename... A>
+    KHook::Return<R> OnPre(A... args);
+    template<typename R, typename... A>
+    KHook::Return<R> OnPost(A... args);
+
+public:
+    void* m_ulAddr{};
+    void* m_trampoline{};
+
     std::vector<DataType_t> m_Args;
-    DataType_t m_eReturnType;
+    DataType_t m_eReturnType{};
 
-    // Shared built-in calling convention identifier
-    Convention_t m_eCallingConvention;
+    Convention_t m_eCallingConvention{};
+    int m_iCallingConvention{};
+    int m_offset{};
+    const char* m_signature{};
 
-    // DynCall calling convention
-    int m_iCallingConvention;
-
-    int m_offset;
-    const char* m_signature;
     ScriptCallback* m_precallback = nullptr;
     ScriptCallback* m_postcallback = nullptr;
-    std::optional<std::function<HookResult(HookMode, dyno::Hook&)>> m_callback;
 
+    std::optional<std::function<HookResult(HookMode, KHookWrapper&)>> m_callback;
     std::vector<HookResult> m_lastPreHookResult;
+
+    KHookWrapper m_runtimeHook;
+    HookHolder m_khook;
 };
 
 } // namespace counterstrikesharp

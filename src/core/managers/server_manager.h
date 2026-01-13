@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "khook.hpp"
 #include "core/globals.h"
 #include "core/global_listener.h"
 #include "scripting/script_engine.h"
@@ -39,15 +40,15 @@ class ServerManager : public GlobalClass
     ScriptCallback* on_server_pre_entity_think;
     ScriptCallback* on_server_post_entity_think;
 
-  private:
-    void ServerHibernationUpdate(bool bHibernating);
-    void GameServerSteamAPIActivated();
-    void GameServerSteamAPIDeactivated();
-    void OnHostNameChanged(const char* pHostname);
-    void PreFatalShutdown();
-    void UpdateWhenNotInGame(float flFrameTime);
-    void PreWorldUpdate(bool bSimulating);
+    KHook::Return<void> Hook_ServerHibernationUpdate(ISource2Server* pThis, bool);
+    KHook::Return<void> Hook_GameServerSteamAPIActivated(ISource2Server* pThis);
+    KHook::Return<void> Hook_GameServerSteamAPIDeactivated(ISource2Server* pThis);
+    KHook::Return<void> Hook_OnHostNameChanged(ISource2Server* pThis, const char*);
+    KHook::Return<void> Hook_PreFatalShutdown(const ISource2Server* pThis);
+    KHook::Return<void> Hook_UpdateWhenNotInGame(ISource2Server* pThis, float);
+    KHook::Return<void> Hook_PreWorldUpdate(ISource2Server* pThis, bool);
 
+  private:
     ScriptCallback* on_server_hibernation_update_callback;
     ScriptCallback* on_server_steam_api_activated_callback;
     ScriptCallback* on_server_steam_api_deactivated_callback;

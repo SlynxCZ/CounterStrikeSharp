@@ -13,6 +13,7 @@
  */
 
 #define VPROF_LEVEL 1
+#include "khook.hpp"
 
 #ifndef _INCLUDE_METAMOD_SOURCE_STUB_PLUGIN_H_
 #define _INCLUDE_METAMOD_SOURCE_STUB_PLUGIN_H_
@@ -46,12 +47,21 @@ class CounterStrikeSharpMMPlugin : public ISmmPlugin, public IMetamodListener
                      bool loadGame,
                      bool background) override;
     void OnLevelShutdown() override;
-    void Hook_GameFrame(bool simulating, bool bFirstTick, bool bLastTick);
-    void Hook_StartupServer(const GameSessionConfiguration_t& config, ISource2WorldSession*, const char*);
-
-    void Hook_RegisterLoopMode(const char* pszLoopModeName, ILoopModeFactory* pLoopModeFactory, void** ppGlobalPointer);
-    int Hook_LoadEventsFromFile(const char* filename, bool bSearchAll);
-    IEngineService* Hook_FindService(const char* serviceName);
+    KHook::Return<void> Hook_GameFrame(IServerGameDLL* pThis,
+                                       bool simulating,
+                                       bool bFirstTick,
+                                       bool bLastTick);
+    KHook::Return<void> Hook_StartupServer(INetworkServerService* pThis,
+                                           const GameSessionConfiguration_t& config,
+                                           ISource2WorldSession*,
+                                           const char*);
+    KHook::Return<void> Hook_RegisterLoopMode(IEngineServiceMgr* pThis,
+                                              const char* pszLoopModeName,
+                                              ILoopModeFactory* pLoopModeFactory,
+                                              void** ppGlobalPointer);
+    KHook::Return<int> Hook_LoadEventsFromFile(IGameEventManager2* pThis,
+                                               const char* filename,
+                                               bool bSearchAll);
 
   public:
     const char* GetAuthor() override;

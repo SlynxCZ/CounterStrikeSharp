@@ -31,6 +31,8 @@
 
 #pragma once
 
+#include "khook.hpp"
+
 #include <string>
 
 #include "core/global_listener.h"
@@ -159,9 +161,18 @@ class PlayerManager : public GlobalClass
     void OnThink(bool last_tick) const;
     void OnShutdown() override;
     void OnLevelEnd() override;
-    void OnClientCommand(CPlayerSlot slot, const CCommand& args) const;
+    bool OnClientCommand(CPlayerSlot slot, const CCommand& args) const;
     int ListenClient() const;
     void RunAuthChecks();
+
+  public:
+    KHook::Return<bool> Hook_OnClientConnect(IServerGameClients*, CPlayerSlot, const char*, uint64, const char*, bool, CBufferString*);
+    KHook::Return<bool> Hook_OnClientConnect_Post(IServerGameClients*, CPlayerSlot, const char*, uint64, const char*, bool, CBufferString*);
+    KHook::Return<void> Hook_OnClientPutInServer(IServerGameClients*, CPlayerSlot, const char*, int, uint64);
+    KHook::Return<void> Hook_OnClientDisconnect(IServerGameClients*, CPlayerSlot, ENetworkDisconnectionReason, const char*, uint64, const char*);
+    KHook::Return<void> Hook_OnClientDisconnect_Post(IServerGameClients*, CPlayerSlot, ENetworkDisconnectionReason, const char*, uint64, const char*);
+    KHook::Return<void> Hook_OnClientVoice(IServerGameClients*, CPlayerSlot);
+    KHook::Return<void> Hook_OnClientCommand(IServerGameClients*, CPlayerSlot, const CCommand&);
 
   public:
     int NumPlayers() const;

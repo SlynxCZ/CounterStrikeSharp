@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "khook.hpp"
 #include "core/globals.h"
 #include "core/global_listener.h"
 #include "scripting/script_engine.h"
@@ -30,7 +31,7 @@ class VoiceManager : public GlobalClass
     ~VoiceManager();
     void OnAllInitialized() override;
     void OnShutdown() override;
-    bool SetClientListening(CPlayerSlot iReceiver, CPlayerSlot iSender, bool bListen);
+    KHook::Return<bool> Hook_SetClientListening(IVEngineServer2* pThis, CPlayerSlot iReceiver, CPlayerSlot iSender, bool bListen);
     void OnClientCommand(CPlayerSlot slot, const CCommand& args);
 
   private:

@@ -34,8 +34,14 @@
 #include "core/log.h"
 #include "scripting/callback_manager.h"
 #include "vprof.h"
+#include "KHook/src/detour.hpp"
 
-SH_DECL_HOOK2(IGameEventManager2, FireEvent, SH_NOATTRIB, 0, bool, IGameEvent*, bool);
+KHook::Virtual fireEventHook(
+    &IGameEventManager2::FireEvent,
+    &counterstrikesharp::globals::eventManager,
+    &counterstrikesharp::EventManager::Hook_FireEvent,
+    &counterstrikesharp::EventManager::Hook_FireEventPost
+);
 
 namespace counterstrikesharp {
 
@@ -59,14 +65,12 @@ void EventManager::OnAllInitialized() {}
 
 void EventManager::OnAllInitialized_Post()
 {
-    SH_ADD_HOOK(IGameEventManager2, FireEvent, globals::gameEventManager, SH_MEMBER(this, &EventManager::OnFireEvent), false);
-    SH_ADD_HOOK(IGameEventManager2, FireEvent, globals::gameEventManager, SH_MEMBER(this, &EventManager::OnFireEventPost), true);
+    fireEventHook.Add(globals::gameEventManager);
 }
 
 void EventManager::OnShutdown()
 {
-    SH_REMOVE_HOOK(IGameEventManager2, FireEvent, globals::gameEventManager, SH_MEMBER(this, &EventManager::OnFireEvent), false);
-    SH_REMOVE_HOOK(IGameEventManager2, FireEvent, globals::gameEventManager, SH_MEMBER(this, &EventManager::OnFireEventPost), true);
+    fireEventHook.Remove(globals::gameEventManager);
 
     globals::gameEventManager->RemoveListener(this);
 }
@@ -186,11 +190,11 @@ bool EventManager::UnhookEvent(const char* szName, CallbackT fnCallback, bool bP
     return true;
 }
 
-bool EventManager::OnFireEvent(IGameEvent* pEvent, bool bDontBroadcast)
+KHook::Return<bool> EventManager::Hook_FireEvent(IGameEventManager2* pThis, IGameEvent* pEvent, bool bDontBroadcast)
 {
     if (!pEvent)
     {
-        RETURN_META_VALUE(MRES_IGNORED, false);
+        return {KHook::Action::Ignore, false};
     }
 
     const char* szName = pEvent->GetName();
@@ -225,7 +229,7 @@ bool EventManager::OnFireEvent(IGameEvent* pEvent, bool bDontBroadcast)
                 {
                     m_EventCopies.push(globals::gameEventManager->DuplicateEvent(pEvent));
                     globals::gameEventManager->FreeEvent(pEvent);
-                    RETURN_META_VALUE(MRES_SUPERCEDE, false);
+                    return {KHook::Action::Supersede, false};
                 }
             }
         }
@@ -238,17 +242,17 @@ bool EventManager::OnFireEvent(IGameEvent* pEvent, bool bDontBroadcast)
 
     if (bLocalDontBroadcast != bDontBroadcast)
     {
-        RETURN_META_VALUE_NEWPARAMS(MRES_IGNORED, true, &IGameEventManager2::FireEvent, (pEvent, bLocalDontBroadcast));
+        return {KHook::Action::Override, true};
     }
 
-    RETURN_META_VALUE(MRES_IGNORED, true);
+    return {KHook::Action::Ignore, true};
 }
 
-bool EventManager::OnFireEventPost(IGameEvent* pEvent, bool bDontBroadcast)
+KHook::Return<bool> EventManager::Hook_FireEventPost(IGameEventManager2* pThis, IGameEvent* pEvent, bool bDontBroadcast)
 {
     if (!pEvent)
     {
-        RETURN_META_VALUE(MRES_IGNORED, false);
+        return {KHook::Action::Ignore, false};
     }
 
     auto pHook = m_EventStack.top();
@@ -284,6 +288,6 @@ bool EventManager::OnFireEventPost(IGameEvent* pEvent, bool bDontBroadcast)
 
     m_EventStack.pop();
 
-    RETURN_META_VALUE(MRES_IGNORED, true);
+    return {KHook::Action::Ignore, true};
 }
 } // namespace counterstrikesharp

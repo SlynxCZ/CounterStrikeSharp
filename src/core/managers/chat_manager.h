@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "KHook/src/detour.hpp"
+
 #include <map>
 #include <vector>
 
@@ -57,6 +59,8 @@ class ChatManager : public GlobalClass
 
     ScriptCallback* on_player_chat_callback = nullptr;
 
+    KHook::Return<void> Hook_HostSay(CEntityInstance* pController, CCommand& args, bool teamonly, int unk1, const char* unk2);
+
   private:
     void InternalDispatch(CEntityInstance* pPlayerController, const char* szTriggerPhrase, CCommand& pFullCommand);
 
@@ -64,7 +68,6 @@ class ChatManager : public GlobalClass
     std::map<std::string, ChatCommandInfo*> m_cmd_lookup;
 };
 
-static void DetourHostSay(CEntityInstance* pController, CCommand& args, bool teamonly, int unk1, const char* unk2);
 static HostSay m_pHostSay = nullptr;
 
 } // namespace counterstrikesharp

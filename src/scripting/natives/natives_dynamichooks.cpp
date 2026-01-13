@@ -19,263 +19,186 @@
 #include "scripting/autonative.h"
 #include "scripting/script_engine.h"
 #include "core/function.h"
-#include "pch.h"
-#include "dynohook/core.h"
-#include "dynohook/manager.h"
+#include <cstring>
 
 namespace counterstrikesharp {
 
+template<typename T>
+static void StoreValue(KHookWrapper* h, T value)
+{
+    static_assert(sizeof(T) <= sizeof(uint64_t));
+    std::memcpy(&h->returnStorage, &value, sizeof(T));
+    h->returnValue = &h->returnStorage;
+}
+
+template<typename T>
+static T LoadValue(const void* ptr)
+{
+    T out{};
+    std::memcpy(&out, ptr, sizeof(T));
+    return out;
+}
+
+template<typename T>
+static void StoreParam(KHookWrapper* h, int idx, T value)
+{
+    static_assert(sizeof(T) <= sizeof(uint64_t));
+    if (h->argStorage.size() <= idx)
+        h->argStorage.resize(idx + 1);
+    std::memcpy(&h->argStorage[idx], &value, sizeof(T));
+    h->args[idx] = &h->argStorage[idx];
+}
+
 void DHookGetReturn(ScriptContext& script_context)
 {
-    auto hook = script_context.GetArgument<dyno::Hook*>(0);
-    auto dataType = script_context.GetArgument<DataType_t>(1);
-    if (hook == nullptr)
-    {
-        script_context.ThrowNativeError("Invalid hook");
-    }
+    auto hook = script_context.GetArgument<KHookWrapper*>(0);
+    auto type = script_context.GetArgument<DataType_t>(1);
 
-    switch (dataType)
+    if (!hook)
+        script_context.ThrowNativeError("Invalid hook");
+
+    switch (type)
     {
-        case DATA_TYPE_BOOL:
-            script_context.SetResult(hook->getReturnValue<bool>());
-            break;
-        case DATA_TYPE_CHAR:
-            script_context.SetResult(hook->getReturnValue<char>());
-            break;
-        case DATA_TYPE_UCHAR:
-            script_context.SetResult(hook->getReturnValue<unsigned char>());
-            break;
-        case DATA_TYPE_SHORT:
-            script_context.SetResult(hook->getReturnValue<short>());
-            break;
-        case DATA_TYPE_USHORT:
-            script_context.SetResult(hook->getReturnValue<unsigned short>());
-            break;
-        case DATA_TYPE_INT:
-            script_context.SetResult(hook->getReturnValue<int>());
-            break;
-        case DATA_TYPE_UINT:
-            script_context.SetResult(hook->getReturnValue<unsigned int>());
-            break;
-        case DATA_TYPE_LONG:
-            script_context.SetResult(hook->getReturnValue<long>());
-            break;
-        case DATA_TYPE_ULONG:
-            script_context.SetResult(hook->getReturnValue<unsigned long>());
-            break;
-        case DATA_TYPE_LONG_LONG:
-            script_context.SetResult(hook->getReturnValue<long long>());
-            break;
-        case DATA_TYPE_ULONG_LONG:
-            script_context.SetResult(hook->getReturnValue<unsigned long long>());
-            break;
-        case DATA_TYPE_FLOAT:
-            script_context.SetResult(hook->getReturnValue<float>());
-            break;
-        case DATA_TYPE_DOUBLE:
-            script_context.SetResult(hook->getReturnValue<double>());
-            break;
+        case DATA_TYPE_BOOL:   script_context.SetResult(LoadValue<bool>(hook->returnValue)); break;
+        case DATA_TYPE_CHAR:   script_context.SetResult(LoadValue<char>(hook->returnValue)); break;
+        case DATA_TYPE_UCHAR:  script_context.SetResult(LoadValue<unsigned char>(hook->returnValue)); break;
+        case DATA_TYPE_SHORT:  script_context.SetResult(LoadValue<short>(hook->returnValue)); break;
+        case DATA_TYPE_USHORT: script_context.SetResult(LoadValue<unsigned short>(hook->returnValue)); break;
+        case DATA_TYPE_INT:    script_context.SetResult(LoadValue<int>(hook->returnValue)); break;
+        case DATA_TYPE_UINT:   script_context.SetResult(LoadValue<unsigned int>(hook->returnValue)); break;
+        case DATA_TYPE_LONG:   script_context.SetResult(LoadValue<long>(hook->returnValue)); break;
+        case DATA_TYPE_ULONG:  script_context.SetResult(LoadValue<unsigned long>(hook->returnValue)); break;
+        case DATA_TYPE_LONG_LONG:  script_context.SetResult(LoadValue<long long>(hook->returnValue)); break;
+        case DATA_TYPE_ULONG_LONG: script_context.SetResult(LoadValue<unsigned long long>(hook->returnValue)); break;
+        case DATA_TYPE_FLOAT:  script_context.SetResult(LoadValue<float>(hook->returnValue)); break;
+        case DATA_TYPE_DOUBLE: script_context.SetResult(LoadValue<double>(hook->returnValue)); break;
+
         case DATA_TYPE_POINTER:
-            script_context.SetResult(hook->getReturnValue<void*>());
-            break;
         case DATA_TYPE_STRING:
-            script_context.SetResult(hook->getReturnValue<const char*>());
+            script_context.SetResult(hook->returnValue);
             break;
+
         default:
-            assert(!"Unknown function parameter type!");
-            break;
+            assert(!"Unknown return type");
     }
 }
 
 void DHookSetReturn(ScriptContext& script_context)
 {
-    auto hook = script_context.GetArgument<dyno::Hook*>(0);
-    auto dataType = script_context.GetArgument<DataType_t>(1);
-    if (hook == nullptr)
-    {
+    auto hook = script_context.GetArgument<KHookWrapper*>(0);
+    auto type = script_context.GetArgument<DataType_t>(1);
+
+    if (!hook)
         script_context.ThrowNativeError("Invalid hook");
-    }
 
-    auto valueIndex = 2;
+    int idx = 2;
 
-    switch (dataType)
+    switch (type)
     {
-        case DATA_TYPE_BOOL:
-            hook->setReturnValue(script_context.GetArgument<bool>(valueIndex));
-            break;
-        case DATA_TYPE_CHAR:
-            hook->setReturnValue(script_context.GetArgument<char>(valueIndex));
-            break;
-        case DATA_TYPE_UCHAR:
-            hook->setReturnValue(script_context.GetArgument<unsigned char>(valueIndex));
-            break;
-        case DATA_TYPE_SHORT:
-            hook->setReturnValue(script_context.GetArgument<short>(valueIndex));
-            break;
-        case DATA_TYPE_USHORT:
-            hook->setReturnValue(script_context.GetArgument<unsigned short>(valueIndex));
-            break;
-        case DATA_TYPE_INT:
-            hook->setReturnValue(script_context.GetArgument<int>(valueIndex));
-            break;
-        case DATA_TYPE_UINT:
-            hook->setReturnValue(script_context.GetArgument<unsigned int>(valueIndex));
-            break;
-        case DATA_TYPE_LONG:
-            hook->setReturnValue(script_context.GetArgument<long>(valueIndex));
-            break;
-        case DATA_TYPE_ULONG:
-            hook->setReturnValue(script_context.GetArgument<unsigned long>(valueIndex));
-            break;
-        case DATA_TYPE_LONG_LONG:
-            hook->setReturnValue(script_context.GetArgument<long long>(valueIndex));
-            break;
-        case DATA_TYPE_ULONG_LONG:
-            hook->setReturnValue(script_context.GetArgument<unsigned long long>(valueIndex));
-            break;
-        case DATA_TYPE_FLOAT:
-            hook->setReturnValue(script_context.GetArgument<float>(valueIndex));
-            break;
-        case DATA_TYPE_DOUBLE:
-            hook->setReturnValue(script_context.GetArgument<double>(valueIndex));
-            break;
+        case DATA_TYPE_BOOL:   StoreValue(hook, script_context.GetArgument<bool>(idx)); break;
+        case DATA_TYPE_CHAR:   StoreValue(hook, script_context.GetArgument<char>(idx)); break;
+        case DATA_TYPE_UCHAR:  StoreValue(hook, script_context.GetArgument<unsigned char>(idx)); break;
+        case DATA_TYPE_SHORT:  StoreValue(hook, script_context.GetArgument<short>(idx)); break;
+        case DATA_TYPE_USHORT: StoreValue(hook, script_context.GetArgument<unsigned short>(idx)); break;
+        case DATA_TYPE_INT:    StoreValue(hook, script_context.GetArgument<int>(idx)); break;
+        case DATA_TYPE_UINT:   StoreValue(hook, script_context.GetArgument<unsigned int>(idx)); break;
+        case DATA_TYPE_LONG:   StoreValue(hook, script_context.GetArgument<long>(idx)); break;
+        case DATA_TYPE_ULONG:  StoreValue(hook, script_context.GetArgument<unsigned long>(idx)); break;
+        case DATA_TYPE_LONG_LONG:  StoreValue(hook, script_context.GetArgument<long long>(idx)); break;
+        case DATA_TYPE_ULONG_LONG: StoreValue(hook, script_context.GetArgument<unsigned long long>(idx)); break;
+        case DATA_TYPE_FLOAT:  StoreValue(hook, script_context.GetArgument<float>(idx)); break;
+        case DATA_TYPE_DOUBLE: StoreValue(hook, script_context.GetArgument<double>(idx)); break;
+        case DATA_TYPE_STRING: hook->returnValue = (void*)script_context.GetArgument<const char*>(idx); break;
+
         case DATA_TYPE_POINTER:
-            hook->setReturnValue(script_context.GetArgument<void*>(valueIndex));
+            hook->returnValue = script_context.GetArgument<void*>(idx);
             break;
-        case DATA_TYPE_STRING:
-            hook->setReturnValue(script_context.GetArgument<const char*>(valueIndex));
-            break;
+
         default:
-            assert(!"Unknown function parameter type!");
-            break;
+            assert(!"Unknown return type");
     }
 }
 
 void DHookGetParam(ScriptContext& script_context)
 {
-    auto hook = script_context.GetArgument<dyno::Hook*>(0);
-    auto dataType = script_context.GetArgument<DataType_t>(1);
-    auto paramIndex = script_context.GetArgument<int>(2);
-    if (hook == nullptr)
-    {
+    auto hook = script_context.GetArgument<KHookWrapper*>(0);
+    auto type = script_context.GetArgument<DataType_t>(1);
+    int index = script_context.GetArgument<int>(2);
+
+    if (!hook)
         script_context.ThrowNativeError("Invalid hook");
+
+    if (index < 0 || index >= hook->args.size())
+    {
+        script_context.ThrowNativeError("Param index out of range");
     }
 
-    switch (dataType)
+    void* val = hook->args[index];
+
+    switch (type)
     {
-        case DATA_TYPE_BOOL:
-            script_context.SetResult(hook->getArgument<bool>(paramIndex));
-            break;
-        case DATA_TYPE_CHAR:
-            script_context.SetResult(hook->getArgument<char>(paramIndex));
-            break;
-        case DATA_TYPE_UCHAR:
-            script_context.SetResult(hook->getArgument<unsigned char>(paramIndex));
-            break;
-        case DATA_TYPE_SHORT:
-            script_context.SetResult(hook->getArgument<short>(paramIndex));
-            break;
-        case DATA_TYPE_USHORT:
-            script_context.SetResult(hook->getArgument<unsigned short>(paramIndex));
-            break;
-        case DATA_TYPE_INT:
-            script_context.SetResult(hook->getArgument<int>(paramIndex));
-            break;
-        case DATA_TYPE_UINT:
-            script_context.SetResult(hook->getArgument<unsigned int>(paramIndex));
-            break;
-        case DATA_TYPE_LONG:
-            script_context.SetResult(hook->getArgument<long>(paramIndex));
-            break;
-        case DATA_TYPE_ULONG:
-            script_context.SetResult(hook->getArgument<unsigned long>(paramIndex));
-            break;
-        case DATA_TYPE_LONG_LONG:
-            script_context.SetResult(hook->getArgument<long long>(paramIndex));
-            break;
-        case DATA_TYPE_ULONG_LONG:
-            script_context.SetResult(hook->getArgument<unsigned long long>(paramIndex));
-            break;
-        case DATA_TYPE_FLOAT:
-            script_context.SetResult(hook->getArgument<float>(paramIndex));
-            break;
-        case DATA_TYPE_DOUBLE:
-            script_context.SetResult(hook->getArgument<double>(paramIndex));
-            break;
+        case DATA_TYPE_BOOL:   script_context.SetResult(LoadValue<bool>(val)); break;
+        case DATA_TYPE_CHAR:   script_context.SetResult(LoadValue<char>(val)); break;
+        case DATA_TYPE_UCHAR:  script_context.SetResult(LoadValue<unsigned char>(val)); break;
+        case DATA_TYPE_SHORT:  script_context.SetResult(LoadValue<short>(val)); break;
+        case DATA_TYPE_USHORT: script_context.SetResult(LoadValue<unsigned short>(val)); break;
+        case DATA_TYPE_INT:    script_context.SetResult(LoadValue<int>(val)); break;
+        case DATA_TYPE_UINT:   script_context.SetResult(LoadValue<unsigned int>(val)); break;
+        case DATA_TYPE_LONG:   script_context.SetResult(LoadValue<long>(val)); break;
+        case DATA_TYPE_ULONG:  script_context.SetResult(LoadValue<unsigned long>(val)); break;
+        case DATA_TYPE_LONG_LONG:  script_context.SetResult(LoadValue<long long>(val)); break;
+        case DATA_TYPE_ULONG_LONG: script_context.SetResult(LoadValue<unsigned long long>(val)); break;
+        case DATA_TYPE_FLOAT:  script_context.SetResult(LoadValue<float>(val)); break;
+        case DATA_TYPE_DOUBLE: script_context.SetResult(LoadValue<double>(val)); break;
+        case DATA_TYPE_STRING: script_context.SetResult((const char*)val); break;
+
         case DATA_TYPE_POINTER:
-            script_context.SetResult(hook->getArgument<void*>(paramIndex));
+            script_context.SetResult(val);
             break;
-        case DATA_TYPE_STRING:
-            script_context.SetResult(hook->getArgument<const char*>(paramIndex));
-            break;
+
         default:
-            assert(!"Unknown function parameter type!");
-            break;
+            assert(!"Unknown param type");
     }
 }
 
 void DHookSetParam(ScriptContext& script_context)
 {
-    auto hook = script_context.GetArgument<dyno::Hook*>(0);
-    auto dataType = script_context.GetArgument<DataType_t>(1);
-    auto paramIndex = script_context.GetArgument<int>(2);
-    if (hook == nullptr)
-    {
+    auto hook = script_context.GetArgument<KHookWrapper*>(0);
+    auto type = script_context.GetArgument<DataType_t>(1);
+    int index = script_context.GetArgument<int>(2);
+
+    if (!hook)
         script_context.ThrowNativeError("Invalid hook");
+
+    if (index < 0 || index >= hook->args.size())
+    {
+        script_context.ThrowNativeError("Param index out of range");
     }
 
-    auto valueIndex = 3;
+    int idx = 3;
 
-    switch (dataType)
+    switch (type)
     {
-        case DATA_TYPE_BOOL:
-            hook->setArgument(paramIndex, script_context.GetArgument<bool>(valueIndex));
-            break;
-        case DATA_TYPE_CHAR:
-            hook->setArgument(paramIndex, script_context.GetArgument<char>(valueIndex));
-            break;
-        case DATA_TYPE_UCHAR:
-            hook->setArgument(paramIndex, script_context.GetArgument<unsigned char>(valueIndex));
-            break;
-        case DATA_TYPE_SHORT:
-            hook->setArgument(paramIndex, script_context.GetArgument<short>(valueIndex));
-            break;
-        case DATA_TYPE_USHORT:
-            hook->setArgument(paramIndex, script_context.GetArgument<unsigned short>(valueIndex));
-            break;
-        case DATA_TYPE_INT:
-            hook->setArgument(paramIndex, script_context.GetArgument<int>(valueIndex));
-            break;
-        case DATA_TYPE_UINT:
-            hook->setArgument(paramIndex, script_context.GetArgument<unsigned int>(valueIndex));
-            break;
-        case DATA_TYPE_LONG:
-            hook->setArgument(paramIndex, script_context.GetArgument<long>(valueIndex));
-            break;
-        case DATA_TYPE_ULONG:
-            hook->setArgument(paramIndex, script_context.GetArgument<unsigned long>(valueIndex));
-            break;
-        case DATA_TYPE_LONG_LONG:
-            hook->setArgument(paramIndex, script_context.GetArgument<long long>(valueIndex));
-            break;
-        case DATA_TYPE_ULONG_LONG:
-            hook->setArgument(paramIndex, script_context.GetArgument<unsigned long long>(valueIndex));
-            break;
-        case DATA_TYPE_FLOAT:
-            hook->setArgument(paramIndex, script_context.GetArgument<float>(valueIndex));
-            break;
-        case DATA_TYPE_DOUBLE:
-            hook->setArgument(paramIndex, script_context.GetArgument<double>(valueIndex));
-            break;
+        case DATA_TYPE_BOOL:   StoreParam(hook, index, script_context.GetArgument<bool>(idx)); break;
+        case DATA_TYPE_CHAR:   StoreParam(hook, index, script_context.GetArgument<char>(idx)); break;
+        case DATA_TYPE_UCHAR:  StoreParam(hook, index, script_context.GetArgument<unsigned char>(idx)); break;
+        case DATA_TYPE_SHORT:  StoreParam(hook, index, script_context.GetArgument<short>(idx)); break;
+        case DATA_TYPE_USHORT: StoreParam(hook, index, script_context.GetArgument<unsigned short>(idx)); break;
+        case DATA_TYPE_INT:    StoreParam(hook, index, script_context.GetArgument<int>(idx)); break;
+        case DATA_TYPE_UINT:   StoreParam(hook, index, script_context.GetArgument<unsigned int>(idx)); break;
+        case DATA_TYPE_LONG:   StoreParam(hook, index, script_context.GetArgument<long>(idx)); break;
+        case DATA_TYPE_ULONG:  StoreParam(hook, index, script_context.GetArgument<unsigned long>(idx)); break;
+        case DATA_TYPE_LONG_LONG:  StoreParam(hook, index, script_context.GetArgument<long long>(idx)); break;
+        case DATA_TYPE_ULONG_LONG: StoreParam(hook, index, script_context.GetArgument<unsigned long long>(idx)); break;
+        case DATA_TYPE_FLOAT:  StoreParam(hook, index, script_context.GetArgument<float>(idx)); break;
+        case DATA_TYPE_DOUBLE: StoreParam(hook, index, script_context.GetArgument<double>(idx)); break;
+        case DATA_TYPE_STRING: StoreParam(hook, index, script_context.GetArgument<const char *>(idx)); break;
         case DATA_TYPE_POINTER:
-            hook->setArgument(paramIndex, script_context.GetArgument<void*>(valueIndex));
+            hook->args[index] = script_context.GetArgument<void*>(idx);
             break;
-        case DATA_TYPE_STRING:
-            hook->setArgument(paramIndex, script_context.GetArgument<const char*>(valueIndex));
-            break;
+
         default:
-            assert(!"Unknown function parameter type!");
-            break;
+            assert(!"Unknown param type");
     }
 }
 

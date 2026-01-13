@@ -26,7 +26,12 @@
 #include <public/game/server/iplayerinfo.h>
 #include <public/entity2/entitysystem.h>
 
-#include <funchook.h>
+#include <khook.hpp>
+
+static KHook::Function<void, IGameEventManager2*> gameEventManagerInitHook(
+    &counterstrikesharp::globals::Hook_GameEventManagerInit,
+    nullptr
+);
 
 namespace counterstrikesharp {
 
@@ -142,18 +147,18 @@ void Initialize()
         return;
     }
 
-    auto m_hook = funchook_create();
-    funchook_prepare(m_hook, (void**)&GameEventManagerInit, (void*)&DetourGameEventManagerInit);
-    funchook_install(m_hook, 0);
+    gameEventManagerInitHook.Configure(GameEventManagerInit);
 }
 
-void DetourGameEventManagerInit(IGameEventManager2* pGameEventManager)
+KHook::Return<void> Hook_GameEventManagerInit(IGameEventManager2* pGameEventManager)
 {
     gameEventManager = pGameEventManager;
 
-    GameEventManagerInit(pGameEventManager);
+    gameEventManagerInitHook.CallOriginal(pGameEventManager);
 
     eventManager.OnAllInitialized_Post();
+
+    return {KHook::Action::Ignore};
 }
 
 int source_hook_pluginid = 0;

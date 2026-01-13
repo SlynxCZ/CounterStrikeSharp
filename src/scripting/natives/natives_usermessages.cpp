@@ -746,8 +746,55 @@ static void UserMessageSend(ScriptContext& scriptContext)
     if (message->IsManuallyAllocated())
         globals::gameEventSystem->PostEventAbstract(0, false, &filter, message->GetSerializableMessage(), message->GetProtobufMessage(), 0);
     else
-        SH_CALL(globals::gameEventSystem, PostEventAbstract)(0, false, &filter, message->GetSerializableMessage(),
-                                                             message->GetProtobufMessage(), 0);
+    {
+        static int offset = []() {
+            using PostEventFn =
+                void (IGameEventSystem::*)(
+                    CSplitScreenSlot,
+                    bool,
+                    IRecipientFilter*,
+                    INetworkMessageInternal*,
+                    const CNetMessage*,
+                    unsigned long
+                );
+
+            return KHook::GetVtableIndex(
+                static_cast<PostEventFn>(
+                    &IGameEventSystem::PostEventAbstract
+                )
+            );
+        }();
+
+        if (offset == -1)
+        {
+            CSSHARP_CORE_ERROR("Failed to get PostEventAbstract index!");
+            return;
+        }
+
+        using Fn = void (*)(
+            IGameEventSystem*,
+            CSplitScreenSlot,
+            bool,
+            IRecipientFilter*,
+            INetworkMessageInternal*,
+            const CNetMessage*,
+            unsigned long
+        );
+
+        auto vtbl = *(void***)globals::gameEventSystem;
+
+        auto fn = (Fn)KHook::GetOriginal(vtbl[offset]);
+
+        fn(
+            globals::gameEventSystem,
+            0,
+            false,
+            &filter,
+            message->GetSerializableMessage(),
+            (const CNetMessage*)message->GetProtobufMessage(),
+            0
+        );
+    }
 }
 
 static void UserMessageDelete(ScriptContext& scriptContext)
