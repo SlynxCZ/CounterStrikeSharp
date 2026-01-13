@@ -20,13 +20,8 @@ inline HookResult OnTakeDamageProxy(HookMode mode, KHookWrapper& hook)
         if (!globals::entityManager.Hook_OnTakeDamage_Alive_Pre(pThis, pInfo, pResult))
         {
             int v = 1;
-            KHook::SaveReturnValue(
-                KHook::Action::Supersede,
-                &v, sizeof(v),
-                reinterpret_cast<void*>(KHook::init_operator<int>),
-                reinterpret_cast<void*>(KHook::deinit_operator<int>),
-                false
-            );
+            KHook::SaveReturnValue(KHook::Action::Supersede, &v, sizeof(v), reinterpret_cast<void*>(KHook::init_operator<int>),
+                                   reinterpret_cast<void*>(KHook::deinit_operator<int>), false);
             return HookResult::Handled;
         }
     }

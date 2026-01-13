@@ -120,10 +120,12 @@ void PlayerManager::OnLevelEnd()
     {
         if (m_players[i].IsConnected())
         {
-            Hook_OnClientDisconnect(globals::serverGameClients, m_players[i].m_slot, ENetworkDisconnectionReason::NETWORK_DISCONNECT_INVALID, m_players[i].GetName(), 0,
-                               m_players[i].GetIpAddress());
-            Hook_OnClientDisconnect_Post(globals::serverGameClients, m_players[i].m_slot, ENetworkDisconnectionReason::NETWORK_DISCONNECT_INVALID, m_players[i].GetName(), 0,
+            Hook_OnClientDisconnect(globals::serverGameClients, m_players[i].m_slot,
+                                    ENetworkDisconnectionReason::NETWORK_DISCONNECT_INVALID, m_players[i].GetName(), 0,
                                     m_players[i].GetIpAddress());
+            Hook_OnClientDisconnect_Post(globals::serverGameClients, m_players[i].m_slot,
+                                         ENetworkDisconnectionReason::NETWORK_DISCONNECT_INVALID, m_players[i].GetName(), 0,
+                                         m_players[i].GetIpAddress());
         }
     }
     m_player_count = 0;
@@ -214,7 +216,8 @@ KHook::Return<bool> PlayerManager::Hook_OnClientConnect_Post(IServerGameClients*
     return { KHook::Action::Ignore, true };
 }
 
-KHook::Return<void> PlayerManager::Hook_OnClientPutInServer(IServerGameClients* pThis, CPlayerSlot slot, const char* pszName, int type, uint64 xuid)
+KHook::Return<void>
+PlayerManager::Hook_OnClientPutInServer(IServerGameClients* pThis, CPlayerSlot slot, const char* pszName, int type, uint64 xuid)
 {
     CSSHARP_CORE_TRACE("[PlayerManager][OnClientPutInServer] - {}, {}, {}", slot.Get(), pszName, type);
 
@@ -325,8 +328,7 @@ KHook::Return<void> PlayerManager::Hook_OnClientCommand(IServerGameClients*, CPl
     auto result = globals::conCommandManager.ExecuteCommandCallbacks(cmd, CCommandContext(CommandTarget_t::CT_NO_TARGET, slot), args,
                                                                      HookMode::Pre, CommandCallingContext::Console);
 
-    if (result >= HookResult::Handled)
-        return { KHook::Action::Supersede };
+    if (result >= HookResult::Handled) return { KHook::Action::Supersede };
 
     return { KHook::Action::Ignore };
 }
