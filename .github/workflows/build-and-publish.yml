@@ -8,6 +8,8 @@ env:
 permissions: {}
 
 on:
+  workflow_dispatch:
+
   push:
     paths-ignore:
       - "docfx/**"
