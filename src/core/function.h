@@ -99,10 +99,8 @@ struct HookHolder
 
 class ValveFunction
 {
-public:
-    ValveFunction(void* addr, Convention_t conv,
-                  std::vector<DataType_t> args,
-                  DataType_t ret);
+  public:
+    ValveFunction(void* addr, Convention_t conv, std::vector<DataType_t> args, DataType_t ret);
 
     ~ValveFunction();
 
@@ -117,12 +115,10 @@ public:
     void AddHook(CallbackT callable, bool post);
     void RemoveHook(CallbackT callable, bool post);
 
-    template<typename R, typename... A>
-    KHook::Return<R> OnPre(A... args);
-    template<typename R, typename... A>
-    KHook::Return<R> OnPost(A... args);
+    template <typename R, typename... A> KHook::Return<R> OnPre(A... args);
+    template <typename R, typename... A> KHook::Return<R> OnPost(A... args);
 
-public:
+  public:
     void* m_ulAddr{};
     void* m_trampoline{};
 

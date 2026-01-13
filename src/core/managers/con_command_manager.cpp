@@ -182,12 +182,10 @@ CON_COMMAND(css_dump_schema, "dump schema symbols")
     output << std::setw(2) << j << std::endl;
 }
 
-KHook::Virtual dispatchConCommandHook(
-    &ICvar::DispatchConCommand,
-    &globals::conCommandManager,
-    &ConCommandManager::Hook_DispatchConCommand,
-    &ConCommandManager::Hook_DispatchConCommand_Post
-);
+KHook::Virtual dispatchConCommandHook(&ICvar::DispatchConCommand,
+                                      &globals::conCommandManager,
+                                      &ConCommandManager::Hook_DispatchConCommand,
+                                      &ConCommandManager::Hook_DispatchConCommand_Post);
 
 ConCommandInfo::ConCommandInfo()
 {
@@ -464,7 +462,8 @@ HookResult ConCommandManager::ExecuteCommandCallbacks(
     return result;
 }
 
-KHook::Return<void> ConCommandManager::Hook_DispatchConCommand(ICvar* pThis, ConCommandRef cmd, const CCommandContext& ctx, const CCommand& args)
+KHook::Return<void>
+ConCommandManager::Hook_DispatchConCommand(ICvar* pThis, ConCommandRef cmd, const CCommandContext& ctx, const CCommand& args)
 {
     const char* name = args.Arg(0);
 
@@ -473,22 +472,23 @@ KHook::Return<void> ConCommandManager::Hook_DispatchConCommand(ICvar* pThis, Con
     auto result = ExecuteCommandCallbacks(name, ctx, args, HookMode::Pre, CommandCallingContext::Console);
     if (result >= HookResult::Handled)
     {
-        return {KHook::Action::Supersede};
+        return { KHook::Action::Supersede };
     }
 
-    return {KHook::Action::Ignore};
+    return { KHook::Action::Ignore };
 }
-KHook::Return<void> ConCommandManager::Hook_DispatchConCommand_Post(ICvar* pThis, ConCommandRef cmd, const CCommandContext& ctx, const CCommand& args)
+KHook::Return<void>
+ConCommandManager::Hook_DispatchConCommand_Post(ICvar* pThis, ConCommandRef cmd, const CCommandContext& ctx, const CCommand& args)
 {
     const char* name = args.Arg(0);
 
     auto result = ExecuteCommandCallbacks(name, ctx, args, HookMode::Post, CommandCallingContext::Console);
     if (result >= HookResult::Handled)
     {
-        return {KHook::Action::Supersede};
+        return { KHook::Action::Supersede };
     }
 
-    return {KHook::Action::Ignore};
+    return { KHook::Action::Ignore };
 }
 bool ConCommandManager::IsValidValveCommand(const char* name)
 {

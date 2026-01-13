@@ -28,17 +28,12 @@
 
 #include "khook.hpp"
 
-KHook::Member checkTransmitHook(
-    &counterstrikesharp::globals::entityManager,
-    &counterstrikesharp::EntityManager::Hook_CheckTransmit,
-    nullptr
-);
+KHook::Member
+    checkTransmitHook(&counterstrikesharp::globals::entityManager, &counterstrikesharp::EntityManager::Hook_CheckTransmit, nullptr);
 
-KHook::Function fireOutputInternalHook(
-    &counterstrikesharp::globals::entityManager,
-    &counterstrikesharp::EntityManager::Hook_FireOutputInternal,
-    nullptr
-);
+KHook::Function fireOutputInternalHook(&counterstrikesharp::globals::entityManager,
+                                       &counterstrikesharp::EntityManager::Hook_FireOutputInternal,
+                                       nullptr);
 
 namespace counterstrikesharp {
 
@@ -59,7 +54,6 @@ CCheckTransmitInfoList::CCheckTransmitInfoList(CCheckTransmitInfoHack** pInfoInf
 
 void EntityManager::OnAllInitialized()
 {
-
     void** pISource2GameEntitiesVTable = *(void***)globals::gameEntities;
     checkTransmitHook.Configure(pISource2GameEntitiesVTable[globals::gameConfig->GetOffset("ISource2GameEntities::CheckTransmit")]);
 
@@ -234,13 +228,13 @@ void EntityManager::UnhookEntityOutput(const char* szClassname, const char* szOu
 }
 
 KHook::Return<void> EntityManager::Hook_CheckTransmit(ISource2GameEntities* pThis,
-                                  CCheckTransmitInfoHack** ppInfoList,
-                                  uint32_t nInfoCount,
-                                  CBitVec<16384>& unionTransmitEdicts1,
-                                  CBitVec<16384>& unionTransmitEdicts2,
-                                  const Entity2Networkable_t** pNetworkables,
-                                  const uint16* pEntityIndicies,
-                                  uint32_t nEntities)
+                                                      CCheckTransmitInfoHack** ppInfoList,
+                                                      uint32_t nInfoCount,
+                                                      CBitVec<16384>& unionTransmitEdicts1,
+                                                      CBitVec<16384>& unionTransmitEdicts2,
+                                                      const Entity2Networkable_t** pNetworkables,
+                                                      const uint16* pEntityIndicies,
+                                                      uint32_t nEntities)
 {
     // VPROF_BUDGET(m_profile_name.c_str(), "CS# CheckTransmit");
 
@@ -257,7 +251,7 @@ KHook::Return<void> EntityManager::Hook_CheckTransmit(ISource2GameEntities* pThi
         delete infoList;
     }
 
-    return {KHook::Action::Ignore};
+    return { KHook::Action::Ignore };
 }
 
 int64 DetourCBaseEntity_TakeDamageOld(CBaseEntity* pThis, CTakeDamageInfo* pInfo, CTakeDamageResult* pResult)
@@ -365,12 +359,12 @@ void EntityManager::Hook_OnTakeDamage_Alive_Post(CBaseEntity* entity, CTakeDamag
 }
 
 KHook::Return<void> EntityManager::Hook_FireOutputInternal(CEntityIOOutput* const pThis,
-                              CEntityInstance* pActivator,
-                              CEntityInstance* pCaller,
-                              const CVariant* const value,
-                              float flDelay,
-                              void* unk1,
-                              char* unk2)
+                                                           CEntityInstance* pActivator,
+                                                           CEntityInstance* pCaller,
+                                                           const CVariant* const value,
+                                                           float flDelay,
+                                                           void* unk1,
+                                                           char* unk2)
 {
     std::vector vecSearchKeys{ OutputKey_t("*", pThis->m_pDesc->m_pName), OutputKey_t("*", "*") };
 
@@ -423,7 +417,7 @@ KHook::Return<void> EntityManager::Hook_FireOutputInternal(CEntityIOOutput* cons
 
                 if (thisResult >= HookResult::Stop)
                 {
-                    return {KHook::Action::Supersede};
+                    return { KHook::Action::Supersede };
                 }
 
                 if (thisResult > result)
@@ -436,7 +430,7 @@ KHook::Return<void> EntityManager::Hook_FireOutputInternal(CEntityIOOutput* cons
 
     if (result >= HookResult::Handled)
     {
-        return {KHook::Action::Supersede};
+        return { KHook::Action::Supersede };
     }
 
     fireOutputInternalHook.CallOriginal(pThis, pActivator, pCaller, value, flDelay, unk1, unk2);
@@ -456,7 +450,7 @@ KHook::Return<void> EntityManager::Hook_FireOutputInternal(CEntityIOOutput* cons
         }
     }
 
-    return {KHook::Action::Ignore};
+    return { KHook::Action::Ignore };
 }
 
 SndOpEventGuid_t EntityEmitSoundFilter(CRecipientFilter& filter, uint32 ent, const char* pszSound, float flVolume, float flPitch)

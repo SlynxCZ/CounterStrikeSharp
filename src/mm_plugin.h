@@ -47,21 +47,14 @@ class CounterStrikeSharpMMPlugin : public ISmmPlugin, public IMetamodListener
                      bool loadGame,
                      bool background) override;
     void OnLevelShutdown() override;
-    KHook::Return<void> Hook_GameFrame(IServerGameDLL* pThis,
-                                       bool simulating,
-                                       bool bFirstTick,
-                                       bool bLastTick);
-    KHook::Return<void> Hook_StartupServer(INetworkServerService* pThis,
-                                           const GameSessionConfiguration_t& config,
-                                           ISource2WorldSession*,
-                                           const char*);
+    KHook::Return<void> Hook_GameFrame(IServerGameDLL* pThis, bool simulating, bool bFirstTick, bool bLastTick);
+    KHook::Return<void>
+    Hook_StartupServer(INetworkServerService* pThis, const GameSessionConfiguration_t& config, ISource2WorldSession*, const char*);
     KHook::Return<void> Hook_RegisterLoopMode(IEngineServiceMgr* pThis,
                                               const char* pszLoopModeName,
                                               ILoopModeFactory* pLoopModeFactory,
                                               void** ppGlobalPointer);
-    KHook::Return<int> Hook_LoadEventsFromFile(IGameEventManager2* pThis,
-                                               const char* filename,
-                                               bool bSearchAll);
+    KHook::Return<int> Hook_LoadEventsFromFile(IGameEventManager2* pThis, const char* filename, bool bSearchAll);
 
   public:
     const char* GetAuthor() override;

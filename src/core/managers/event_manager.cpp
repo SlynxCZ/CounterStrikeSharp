@@ -36,12 +36,10 @@
 #include "vprof.h"
 #include "KHook/src/detour.hpp"
 
-KHook::Virtual fireEventHook(
-    &IGameEventManager2::FireEvent,
-    &counterstrikesharp::globals::eventManager,
-    &counterstrikesharp::EventManager::Hook_FireEvent,
-    &counterstrikesharp::EventManager::Hook_FireEventPost
-);
+KHook::Virtual fireEventHook(&IGameEventManager2::FireEvent,
+                             &counterstrikesharp::globals::eventManager,
+                             &counterstrikesharp::EventManager::Hook_FireEvent,
+                             &counterstrikesharp::EventManager::Hook_FireEventPost);
 
 namespace counterstrikesharp {
 
@@ -63,10 +61,7 @@ void EventManager::OnGameLoopInitialized()
 
 void EventManager::OnAllInitialized() {}
 
-void EventManager::OnAllInitialized_Post()
-{
-    fireEventHook.Add(globals::gameEventManager);
-}
+void EventManager::OnAllInitialized_Post() { fireEventHook.Add(globals::gameEventManager); }
 
 void EventManager::OnShutdown()
 {
@@ -194,7 +189,7 @@ KHook::Return<bool> EventManager::Hook_FireEvent(IGameEventManager2* pThis, IGam
 {
     if (!pEvent)
     {
-        return {KHook::Action::Ignore, false};
+        return { KHook::Action::Ignore, false };
     }
 
     const char* szName = pEvent->GetName();
@@ -229,7 +224,7 @@ KHook::Return<bool> EventManager::Hook_FireEvent(IGameEventManager2* pThis, IGam
                 {
                     m_EventCopies.push(globals::gameEventManager->DuplicateEvent(pEvent));
                     globals::gameEventManager->FreeEvent(pEvent);
-                    return {KHook::Action::Supersede, false};
+                    return { KHook::Action::Supersede, false };
                 }
             }
         }
@@ -242,17 +237,17 @@ KHook::Return<bool> EventManager::Hook_FireEvent(IGameEventManager2* pThis, IGam
 
     if (bLocalDontBroadcast != bDontBroadcast)
     {
-        return {KHook::Action::Override, true};
+        return { KHook::Action::Override, true };
     }
 
-    return {KHook::Action::Ignore, true};
+    return { KHook::Action::Ignore, true };
 }
 
 KHook::Return<bool> EventManager::Hook_FireEventPost(IGameEventManager2* pThis, IGameEvent* pEvent, bool bDontBroadcast)
 {
     if (!pEvent)
     {
-        return {KHook::Action::Ignore, false};
+        return { KHook::Action::Ignore, false };
     }
 
     auto pHook = m_EventStack.top();
@@ -288,6 +283,6 @@ KHook::Return<bool> EventManager::Hook_FireEventPost(IGameEventManager2* pThis, 
 
     m_EventStack.pop();
 
-    return {KHook::Action::Ignore, true};
+    return { KHook::Action::Ignore, true };
 }
 } // namespace counterstrikesharp

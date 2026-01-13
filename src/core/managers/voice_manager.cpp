@@ -23,12 +23,10 @@
 #include "core/managers/player_manager.h"
 #include "scripting/callback_manager.h"
 
-KHook::Virtual setClientListeningHook(
-    &IVEngineServer2::SetClientListening,
-    &counterstrikesharp::globals::voiceManager,
-    &counterstrikesharp::VoiceManager::Hook_SetClientListening,
-    nullptr
-);
+KHook::Virtual setClientListeningHook(&IVEngineServer2::SetClientListening,
+                                      &counterstrikesharp::globals::voiceManager,
+                                      &counterstrikesharp::VoiceManager::Hook_SetClientListening,
+                                      nullptr);
 
 namespace counterstrikesharp {
 
@@ -36,15 +34,9 @@ VoiceManager::VoiceManager() {}
 
 VoiceManager::~VoiceManager() {}
 
-void VoiceManager::OnAllInitialized()
-{
-    setClientListeningHook.Add(globals::engine);
-}
+void VoiceManager::OnAllInitialized() { setClientListeningHook.Add(globals::engine); }
 
-void VoiceManager::OnShutdown()
-{
-    setClientListeningHook.Remove(globals::engine);
-}
+void VoiceManager::OnShutdown() { setClientListeningHook.Remove(globals::engine); }
 
 KHook::Return<bool> VoiceManager::Hook_SetClientListening(IVEngineServer2* pThis, CPlayerSlot iReceiver, CPlayerSlot iSender, bool bListen)
 {
@@ -59,26 +51,26 @@ KHook::Return<bool> VoiceManager::Hook_SetClientListening(IVEngineServer2* pThis
 
         if (pReceiver->m_selfMutes->Get(iSender.Get()))
         {
-            return {KHook::Action::Override, false};
+            return { KHook::Action::Override, false };
         }
 
         if (senderFlags & Speak_Muted)
         {
-            return {KHook::Action::Override, false};
+            return { KHook::Action::Override, false };
         }
 
         if (listenOverride == Listen_Mute)
         {
-            return {KHook::Action::Override, false};
+            return { KHook::Action::Override, false };
         }
         else if (listenOverride == Listen_Hear)
         {
-            return {KHook::Action::Override, true};
+            return { KHook::Action::Override, true };
         }
 
         if ((senderFlags & Speak_All) || (receiverFlags & Speak_ListenAll))
         {
-            return {KHook::Action::Override, true};
+            return { KHook::Action::Override, true };
         }
 
         if ((senderFlags & Speak_Team) || (receiverFlags & Speak_ListenTeam))
@@ -96,12 +88,12 @@ KHook::Return<bool> VoiceManager::Hook_SetClientListening(IVEngineServer2* pThis
 
                 auto senderTeam = *reinterpret_cast<std::add_pointer_t<unsigned int>>((uintptr_t)(senderController) + m_key.offset);
 
-                return {KHook::Action::Override, receiverTeam == senderTeam};
+                return { KHook::Action::Override, receiverTeam == senderTeam };
             }
         }
     }
 
-    return {KHook::Action::Ignore, bListen};
+    return { KHook::Action::Ignore, bListen };
 }
 
 void VoiceManager::OnClientCommand(CPlayerSlot slot, const CCommand& args)

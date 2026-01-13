@@ -21,54 +21,40 @@
 
 #include "core/game_system.h"
 
-KHook::Virtual hibernateHook(
-    &ISource2Server::ServerHibernationUpdate,
-    &counterstrikesharp::globals::serverManager,
-    &counterstrikesharp::ServerManager::Hook_ServerHibernationUpdate,
-    nullptr
-);
+KHook::Virtual hibernateHook(&ISource2Server::ServerHibernationUpdate,
+                             &counterstrikesharp::globals::serverManager,
+                             &counterstrikesharp::ServerManager::Hook_ServerHibernationUpdate,
+                             nullptr);
 
-KHook::Virtual steamApiActivatedHook(
-    &ISource2Server::GameServerSteamAPIActivated,
-    &counterstrikesharp::globals::serverManager,
-    &counterstrikesharp::ServerManager::Hook_GameServerSteamAPIActivated,
-    nullptr
-);
+KHook::Virtual steamApiActivatedHook(&ISource2Server::GameServerSteamAPIActivated,
+                                     &counterstrikesharp::globals::serverManager,
+                                     &counterstrikesharp::ServerManager::Hook_GameServerSteamAPIActivated,
+                                     nullptr);
 
-KHook::Virtual steamApiDeactivatedHook(
-    &ISource2Server::GameServerSteamAPIDeactivated,
-    &counterstrikesharp::globals::serverManager,
-    &counterstrikesharp::ServerManager::Hook_GameServerSteamAPIDeactivated,
-    nullptr
-);
+KHook::Virtual steamApiDeactivatedHook(&ISource2Server::GameServerSteamAPIDeactivated,
+                                       &counterstrikesharp::globals::serverManager,
+                                       &counterstrikesharp::ServerManager::Hook_GameServerSteamAPIDeactivated,
+                                       nullptr);
 
-KHook::Virtual hostnameChangedHook(
-    &ISource2Server::OnHostNameChanged,
-    &counterstrikesharp::globals::serverManager,
-    &counterstrikesharp::ServerManager::Hook_OnHostNameChanged,
-    nullptr
-);
+KHook::Virtual hostnameChangedHook(&ISource2Server::OnHostNameChanged,
+                                   &counterstrikesharp::globals::serverManager,
+                                   &counterstrikesharp::ServerManager::Hook_OnHostNameChanged,
+                                   nullptr);
 
-KHook::Virtual updateNotInGameHook(
-    &ISource2Server::UpdateWhenNotInGame,
-    &counterstrikesharp::globals::serverManager,
-    &counterstrikesharp::ServerManager::Hook_UpdateWhenNotInGame,
-    nullptr
-);
+KHook::Virtual updateNotInGameHook(&ISource2Server::UpdateWhenNotInGame,
+                                   &counterstrikesharp::globals::serverManager,
+                                   &counterstrikesharp::ServerManager::Hook_UpdateWhenNotInGame,
+                                   nullptr);
 
-KHook::Virtual preWorldUpdateHook(
-    &ISource2Server::PreWorldUpdate,
-    &counterstrikesharp::globals::serverManager,
-    &counterstrikesharp::ServerManager::Hook_PreWorldUpdate,
-    nullptr
-);
+KHook::Virtual preWorldUpdateHook(&ISource2Server::PreWorldUpdate,
+                                  &counterstrikesharp::globals::serverManager,
+                                  &counterstrikesharp::ServerManager::Hook_PreWorldUpdate,
+                                  nullptr);
 
-KHook::Virtual preFatalShutdownHook(
-    &ISource2Server::PreFatalShutdown,
-    &counterstrikesharp::globals::serverManager,
-    &counterstrikesharp::ServerManager::Hook_PreFatalShutdown,
-    nullptr
-);
+KHook::Virtual preFatalShutdownHook(&ISource2Server::PreFatalShutdown,
+                                    &counterstrikesharp::globals::serverManager,
+                                    &counterstrikesharp::ServerManager::Hook_PreFatalShutdown,
+                                    nullptr);
 
 namespace counterstrikesharp {
 
@@ -126,9 +112,7 @@ void* ServerManager::GetEconItemSystem() { return globals::server->GetEconItemSy
 
 bool ServerManager::IsPaused() { return globals::server->IsPaused(); }
 
-KHook::Return<void> ServerManager::Hook_ServerHibernationUpdate(
-    ISource2Server* pThis,
-    bool bHibernating)
+KHook::Return<void> ServerManager::Hook_ServerHibernationUpdate(ISource2Server* pThis, bool bHibernating)
 {
     CSSHARP_CORE_TRACE("Server hibernation update {0}", bHibernating);
 
@@ -141,7 +125,7 @@ KHook::Return<void> ServerManager::Hook_ServerHibernationUpdate(
         callback->Execute();
     }
 
-    return {KHook::Action::Ignore};
+    return { KHook::Action::Ignore };
 }
 
 KHook::Return<void> ServerManager::Hook_GameServerSteamAPIActivated(ISource2Server* pThis)
@@ -156,7 +140,7 @@ KHook::Return<void> ServerManager::Hook_GameServerSteamAPIActivated(ISource2Serv
         callback->Execute();
     }
 
-    return {KHook::Action::Ignore};
+    return { KHook::Action::Ignore };
 }
 
 KHook::Return<void> ServerManager::Hook_GameServerSteamAPIDeactivated(ISource2Server* pThis)
@@ -171,12 +155,10 @@ KHook::Return<void> ServerManager::Hook_GameServerSteamAPIDeactivated(ISource2Se
         callback->Execute();
     }
 
-    return {KHook::Action::Ignore};
+    return { KHook::Action::Ignore };
 }
 
-KHook::Return<void> ServerManager::Hook_OnHostNameChanged(
-    ISource2Server* pThis,
-    const char* pHostname)
+KHook::Return<void> ServerManager::Hook_OnHostNameChanged(ISource2Server* pThis, const char* pHostname)
 {
     CSSHARP_CORE_TRACE("Server hostname changed {0}", pHostname);
 
@@ -189,7 +171,7 @@ KHook::Return<void> ServerManager::Hook_OnHostNameChanged(
         callback->Execute();
     }
 
-    return {KHook::Action::Ignore};
+    return { KHook::Action::Ignore };
 }
 
 KHook::Return<void> ServerManager::Hook_PreFatalShutdown(const ISource2Server* pThis)
@@ -204,12 +186,10 @@ KHook::Return<void> ServerManager::Hook_PreFatalShutdown(const ISource2Server* p
         callback->Execute();
     }
 
-    return {KHook::Action::Ignore};
+    return { KHook::Action::Ignore };
 }
 
-KHook::Return<void> ServerManager::Hook_UpdateWhenNotInGame(
-    ISource2Server* pThis,
-    float flFrameTime)
+KHook::Return<void> ServerManager::Hook_UpdateWhenNotInGame(ISource2Server* pThis, float flFrameTime)
 {
     CSSHARP_CORE_TRACE("Update when not in game {}", flFrameTime);
 
@@ -222,12 +202,10 @@ KHook::Return<void> ServerManager::Hook_UpdateWhenNotInGame(
         callback->Execute();
     }
 
-    return {KHook::Action::Ignore};
+    return { KHook::Action::Ignore };
 }
 
-KHook::Return<void> ServerManager::Hook_PreWorldUpdate(
-    ISource2Server* pThis,
-    bool bSimulating)
+KHook::Return<void> ServerManager::Hook_PreWorldUpdate(ISource2Server* pThis, bool bSimulating)
 {
     auto callback = globals::serverManager.on_server_pre_world_update;
 
@@ -238,7 +216,7 @@ KHook::Return<void> ServerManager::Hook_PreWorldUpdate(
         callback->Execute();
     }
 
-    return {KHook::Action::Ignore};
+    return { KHook::Action::Ignore };
 }
 
 void ServerManager::OnPrecacheResources(IEntityResourceManifest* pResourceManifest)

@@ -28,10 +28,8 @@
 
 #include <khook.hpp>
 
-static KHook::Function<void, IGameEventManager2*> gameEventManagerInitHook(
-    &counterstrikesharp::globals::Hook_GameEventManagerInit,
-    nullptr
-);
+static KHook::Function<void, IGameEventManager2*> gameEventManagerInitHook(&counterstrikesharp::globals::Hook_GameEventManagerInit,
+                                                                           nullptr);
 
 namespace counterstrikesharp {
 
@@ -158,7 +156,7 @@ KHook::Return<void> Hook_GameEventManagerInit(IGameEventManager2* pGameEventMana
 
     eventManager.OnAllInitialized_Post();
 
-    return {KHook::Action::Ignore};
+    return { KHook::Action::Ignore };
 }
 
 int source_hook_pluginid = 0;

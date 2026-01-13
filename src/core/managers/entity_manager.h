@@ -110,7 +110,7 @@ struct EntityIOOutputDesc_t
 
 class CEntityIOOutput
 {
-public:
+  public:
     void* vtable;
     EntityIOConnection_t* m_pConnections;
     EntityIOOutputDesc_t* m_pDesc;
@@ -133,20 +133,20 @@ class EntityManager : public GlobalClass
     void Hook_OnTakeDamage_Alive_Post(CBaseEntity* entity, CTakeDamageInfo* info, CTakeDamageResult* pResult);
     ValveFunction* Func_OnTakeDamage;
     KHook::Return<void> Hook_CheckTransmit(ISource2GameEntities* pThis,
-                       CCheckTransmitInfoHack** ppInfoList,
-                       uint32_t infoCount,
-                       CBitVec<16384>& unionTransmitEdicts1,
-                       CBitVec<16384>& unionTransmitEdicts2,
-                       const Entity2Networkable_t** pNetworkables,
-                       const uint16* pEntityIndicies,
-                       uint32_t nEntities);
+                                           CCheckTransmitInfoHack** ppInfoList,
+                                           uint32_t infoCount,
+                                           CBitVec<16384>& unionTransmitEdicts1,
+                                           CBitVec<16384>& unionTransmitEdicts2,
+                                           const Entity2Networkable_t** pNetworkables,
+                                           const uint16* pEntityIndicies,
+                                           uint32_t nEntities);
     KHook::Return<void> Hook_FireOutputInternal(CEntityIOOutput* const pThis,
-                                     CEntityInstance* pActivator,
-                                     CEntityInstance* pCaller,
-                                     const CVariant* const value,
-                                     float flDelay,
-                                     void* unk1,
-                                     char* unk2);
+                                                CEntityInstance* pActivator,
+                                                CEntityInstance* pCaller,
+                                                const CVariant* const value,
+                                                float flDelay,
+                                                void* unk1,
+                                                char* unk2);
 
   private:
     ScriptCallback* on_entity_spawned_callback;

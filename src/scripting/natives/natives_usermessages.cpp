@@ -748,21 +748,10 @@ static void UserMessageSend(ScriptContext& scriptContext)
     else
     {
         static int offset = []() {
-            using PostEventFn =
-                void (IGameEventSystem::*)(
-                    CSplitScreenSlot,
-                    bool,
-                    IRecipientFilter*,
-                    INetworkMessageInternal*,
-                    const CNetMessage*,
-                    unsigned long
-                );
+            using PostEventFn = void (IGameEventSystem::*)(CSplitScreenSlot, bool, IRecipientFilter*, INetworkMessageInternal*,
+                                                           const CNetMessage*, unsigned long);
 
-            return KHook::GetVtableIndex(
-                static_cast<PostEventFn>(
-                    &IGameEventSystem::PostEventAbstract
-                )
-            );
+            return KHook::GetVtableIndex(static_cast<PostEventFn>(&IGameEventSystem::PostEventAbstract));
         }();
 
         if (offset == -1)
@@ -771,29 +760,15 @@ static void UserMessageSend(ScriptContext& scriptContext)
             return;
         }
 
-        using Fn = void (*)(
-            IGameEventSystem*,
-            CSplitScreenSlot,
-            bool,
-            IRecipientFilter*,
-            INetworkMessageInternal*,
-            const CNetMessage*,
-            unsigned long
-        );
+        using Fn = void (*)(IGameEventSystem*, CSplitScreenSlot, bool, IRecipientFilter*, INetworkMessageInternal*, const CNetMessage*,
+                            unsigned long);
 
         auto vtbl = *(void***)globals::gameEventSystem;
 
         auto fn = (Fn)KHook::GetOriginal(vtbl[offset]);
 
-        fn(
-            globals::gameEventSystem,
-            0,
-            false,
-            &filter,
-            message->GetSerializableMessage(),
-            (const CNetMessage*)message->GetProtobufMessage(),
-            0
-        );
+        fn(globals::gameEventSystem, 0, false, &filter, message->GetSerializableMessage(),
+           (const CNetMessage*)message->GetProtobufMessage(), 0);
     }
 }
 

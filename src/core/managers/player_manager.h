@@ -169,8 +169,10 @@ class PlayerManager : public GlobalClass
     KHook::Return<bool> Hook_OnClientConnect(IServerGameClients*, CPlayerSlot, const char*, uint64, const char*, bool, CBufferString*);
     KHook::Return<bool> Hook_OnClientConnect_Post(IServerGameClients*, CPlayerSlot, const char*, uint64, const char*, bool, CBufferString*);
     KHook::Return<void> Hook_OnClientPutInServer(IServerGameClients*, CPlayerSlot, const char*, int, uint64);
-    KHook::Return<void> Hook_OnClientDisconnect(IServerGameClients*, CPlayerSlot, ENetworkDisconnectionReason, const char*, uint64, const char*);
-    KHook::Return<void> Hook_OnClientDisconnect_Post(IServerGameClients*, CPlayerSlot, ENetworkDisconnectionReason, const char*, uint64, const char*);
+    KHook::Return<void>
+    Hook_OnClientDisconnect(IServerGameClients*, CPlayerSlot, ENetworkDisconnectionReason, const char*, uint64, const char*);
+    KHook::Return<void>
+    Hook_OnClientDisconnect_Post(IServerGameClients*, CPlayerSlot, ENetworkDisconnectionReason, const char*, uint64, const char*);
     KHook::Return<void> Hook_OnClientVoice(IServerGameClients*, CPlayerSlot);
     KHook::Return<void> Hook_OnClientCommand(IServerGameClients*, CPlayerSlot, const CCommand&);
 

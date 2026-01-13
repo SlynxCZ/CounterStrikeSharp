@@ -30,11 +30,7 @@
 
 #include "khook.hpp"
 
-KHook::Function hostSayHook(
-    &counterstrikesharp::globals::chatManager,
-    &counterstrikesharp::ChatManager::Hook_HostSay,
-    nullptr
-);
+KHook::Function hostSayHook(&counterstrikesharp::globals::chatManager, &counterstrikesharp::ChatManager::Hook_HostSay, nullptr);
 
 namespace counterstrikesharp {
 
@@ -116,7 +112,7 @@ KHook::Return<void> Hook_HostSay(CEntityInstance* pController, CCommand& args, b
         }
     }
 
-    return {KHook::Action::Supersede};
+    return { KHook::Action::Supersede };
 }
 
 bool ChatManager::OnSayCommandPre(CEntityInstance* pController, CCommand& command) { return false; }

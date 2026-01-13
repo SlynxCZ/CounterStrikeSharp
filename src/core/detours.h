@@ -13,12 +13,11 @@ inline HookResult OnTakeDamageProxy(HookMode mode, KHookWrapper& hook)
 {
     auto* pThis = reinterpret_cast<CBaseEntity*>(hook.args[0]);
     auto* pInfo = reinterpret_cast<CTakeDamageInfo*>(hook.args[1]);
-    auto* pResult= reinterpret_cast<CTakeDamageResult*>(hook.args[2]);
+    auto* pResult = reinterpret_cast<CTakeDamageResult*>(hook.args[2]);
 
     if (mode == HookMode::Pre)
     {
-        if (!globals::entityManager
-                .Hook_OnTakeDamage_Alive_Pre(pThis, pInfo, pResult))
+        if (!globals::entityManager.Hook_OnTakeDamage_Alive_Pre(pThis, pInfo, pResult))
         {
             hook.returnStorage = 1;
             hook.returnValue = &hook.returnStorage;
@@ -27,8 +26,7 @@ inline HookResult OnTakeDamageProxy(HookMode mode, KHookWrapper& hook)
     }
     else
     {
-        globals::entityManager
-            .Hook_OnTakeDamage_Alive_Post(pThis, pInfo, pResult);
+        globals::entityManager.Hook_OnTakeDamage_Alive_Post(pThis, pInfo, pResult);
     }
 
     return HookResult::Continue;
