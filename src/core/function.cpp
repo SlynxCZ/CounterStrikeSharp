@@ -28,9 +28,15 @@
  */
 
 #include "core/function.h"
+#ifdef max
+#undef max
+#endif
+
+#ifdef min
+#undef min
+#endif
 
 #include <algorithm>
-
 #include "core/log.h"
 #include "dyncall/dyncall/dyncall.h"
 
@@ -370,7 +376,6 @@ template <typename R, typename... A> KHook::Return<R> ValveFunction::OnPre(A... 
     FillArgs(m_runtimeHook, args...);
 
     m_runtimeHook.originalFunc = m_ulAddr;
-    m_runtimeHook.returnValue = nullptr;
 
     HookResult max = HookResult::Continue;
 

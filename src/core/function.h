@@ -84,9 +84,6 @@ struct KHookWrapper
 
     std::vector<uint64_t> argStorage;
     std::vector<void*> args;
-
-    uint64_t returnStorage{};
-    void* returnValue = nullptr;
 };
 
 struct HookHolder
