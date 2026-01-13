@@ -80,10 +80,9 @@ CounterStrikeSharpMMPlugin gPlugin;
 
 KHook::Virtual gameFrameHook(&IServerGameDLL::GameFrame, &gPlugin, &CounterStrikeSharpMMPlugin::Hook_GameFrame, nullptr);
 
-KHook::Virtual startupServerHook(&INetworkServerService::StartupServer, &gPlugin, &CounterStrikeSharpMMPlugin::Hook_StartupServer, nullptr);
+KHook::Virtual startupServerHook(&INetworkServerService::StartupServer, &gPlugin, nullptr, &CounterStrikeSharpMMPlugin::Hook_StartupServer);
 
-KHook::Virtual
-    registerLoopModeHook(&IEngineServiceMgr::RegisterLoopMode, &gPlugin, &CounterStrikeSharpMMPlugin::Hook_RegisterLoopMode, nullptr);
+KHook::Virtual registerLoopModeHook(&IEngineServiceMgr::RegisterLoopMode, &gPlugin, nullptr, &CounterStrikeSharpMMPlugin::Hook_RegisterLoopMode);
 
 KHook::Member loadEventsFromFileHook(&gPlugin, &CounterStrikeSharpMMPlugin::Hook_LoadEventsFromFile, nullptr);
 

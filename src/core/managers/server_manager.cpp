@@ -23,38 +23,38 @@
 
 KHook::Virtual hibernateHook(&ISource2Server::ServerHibernationUpdate,
                              &counterstrikesharp::globals::serverManager,
-                             &counterstrikesharp::ServerManager::Hook_ServerHibernationUpdate,
-                             nullptr);
+                                    nullptr,
+                             &counterstrikesharp::ServerManager::Hook_ServerHibernationUpdate);
 
 KHook::Virtual steamApiActivatedHook(&ISource2Server::GameServerSteamAPIActivated,
                                      &counterstrikesharp::globals::serverManager,
-                                     &counterstrikesharp::ServerManager::Hook_GameServerSteamAPIActivated,
-                                     nullptr);
+                                    nullptr,
+                                     &counterstrikesharp::ServerManager::Hook_GameServerSteamAPIActivated);
 
 KHook::Virtual steamApiDeactivatedHook(&ISource2Server::GameServerSteamAPIDeactivated,
                                        &counterstrikesharp::globals::serverManager,
-                                       &counterstrikesharp::ServerManager::Hook_GameServerSteamAPIDeactivated,
-                                       nullptr);
+                                    nullptr,
+                                       &counterstrikesharp::ServerManager::Hook_GameServerSteamAPIDeactivated);
 
 KHook::Virtual hostnameChangedHook(&ISource2Server::OnHostNameChanged,
                                    &counterstrikesharp::globals::serverManager,
-                                   &counterstrikesharp::ServerManager::Hook_OnHostNameChanged,
-                                   nullptr);
+                                    nullptr,
+                                   &counterstrikesharp::ServerManager::Hook_OnHostNameChanged);
 
 KHook::Virtual updateNotInGameHook(&ISource2Server::UpdateWhenNotInGame,
                                    &counterstrikesharp::globals::serverManager,
-                                   &counterstrikesharp::ServerManager::Hook_UpdateWhenNotInGame,
-                                   nullptr);
+                                    nullptr,
+                                   &counterstrikesharp::ServerManager::Hook_UpdateWhenNotInGame);
 
 KHook::Virtual preWorldUpdateHook(&ISource2Server::PreWorldUpdate,
                                   &counterstrikesharp::globals::serverManager,
-                                  &counterstrikesharp::ServerManager::Hook_PreWorldUpdate,
-                                  nullptr);
+                                    nullptr,
+                                  &counterstrikesharp::ServerManager::Hook_PreWorldUpdate);
 
 KHook::Virtual preFatalShutdownHook(&ISource2Server::PreFatalShutdown,
                                     &counterstrikesharp::globals::serverManager,
-                                    &counterstrikesharp::ServerManager::Hook_PreFatalShutdown,
-                                    nullptr);
+                                    nullptr,
+                                    &counterstrikesharp::ServerManager::Hook_PreFatalShutdown);
 
 namespace counterstrikesharp {
 

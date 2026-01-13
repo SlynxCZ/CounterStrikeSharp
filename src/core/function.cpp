@@ -371,6 +371,31 @@ void ValveFunction::AddHook(CallbackT fn, bool post)
     }
 }
 
+void ValveFunction::RemoveHook(CallbackT callable, bool post)
+{
+    ScriptCallback* cb = post ? m_postcallback : m_precallback;
+
+    if (!cb)
+        return;
+
+    if (m_khook && m_khook.obj)
+    {
+        m_khook.obj.reset();
+    }
+
+    cb->RemoveListener(callable);
+
+    if (cb->GetFunctionCount() == 0)
+    {
+        globals::callbackManager.ReleaseCallback(cb);
+
+        if (post)
+            m_postcallback = nullptr;
+        else
+            m_precallback = nullptr;
+    }
+}
+
 template <typename R, typename... A> KHook::Return<R> ValveFunction::OnPre(A... args)
 {
     FillArgs(m_runtimeHook, args...);

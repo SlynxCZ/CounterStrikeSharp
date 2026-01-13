@@ -64,8 +64,8 @@ KHook::Virtual clientDisconnectHook(&IServerGameClients::ClientDisconnect,
 
 KHook::Virtual clientVoiceHook(&IServerGameClients::ClientVoice,
                                &counterstrikesharp::globals::playerManager,
-                               &counterstrikesharp::PlayerManager::Hook_OnClientVoice,
-                               nullptr);
+                                    nullptr,
+                               &counterstrikesharp::PlayerManager::Hook_OnClientVoice);
 
 KHook::Virtual clientCommandHook(&IServerGameClients::ClientCommand,
                                  &counterstrikesharp::globals::playerManager,

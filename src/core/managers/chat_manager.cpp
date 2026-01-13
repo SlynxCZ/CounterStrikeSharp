@@ -55,7 +55,7 @@ void ChatManager::OnAllInitialized()
 
 void ChatManager::OnShutdown() { globals::callbackManager.ReleaseCallback(on_player_chat_callback); }
 
-KHook::Return<void> Hook_HostSay(CEntityInstance* pController, CCommand& args, bool teamonly, int unk1, const char* unk2)
+KHook::Return<void> ChatManager::Hook_HostSay(CEntityInstance* pController, CCommand& args, bool teamonly, int unk1, const char* unk2)
 {
     std::string prefix;
     bool bSilent = globals::coreConfig->IsSilentChatTrigger(args[1], prefix);
