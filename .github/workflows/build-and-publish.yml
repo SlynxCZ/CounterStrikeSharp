@@ -8,16 +8,14 @@ env:
 permissions: {}
 
 on:
-  workflow_dispatch:
-
   push:
     paths-ignore:
       - "docfx/**"
-    branches: ["main"]
+    branches: ["main", "khook"]
     tags:
       - "v*"
   pull_request:
-    branches: ["main"]
+    branches: ["main", "khook"]
 
 jobs:
   setup:
@@ -231,7 +229,7 @@ jobs:
         run: |
           (cd build/linux && zip -qq -r ../../counterstrikesharp-with-runtime-linux-${{ needs.setup.outputs.gitversion_semver }}.zip *)
           (cd build/windows && zip -qq -r ../../counterstrikesharp-with-runtime-windows-${{ needs.setup.outputs.gitversion_semver }}.zip *)
-      
+
       - name: Generate a changelog
         uses: orhun/git-cliff-action@v4
         id: git-cliff
